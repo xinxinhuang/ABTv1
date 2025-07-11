@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, fetchCardSafely } from '@/lib/supabase/client';
 import { Card } from '@/types/game';
 import { CardDisplay } from '@/components/game/CardDisplay';
 import { CardSelection } from '@/components/game/battle/CardSelection';
@@ -326,35 +326,37 @@ export default function BattlePage() {
               console.log('Retrieved battle cards:', battleCards);
               
               if (battleCards && battleCards.length === 2) {
-                // Get player's card
+                // Get player's card using the safe fetch method
                 const playerCardData = battleCards.find(c => c.player_id === user.id);
                 if (playerCardData) {
-                  const { data: playerCard } = await supabase
-                    .from('player_cards')
-                    .select('*')
-                    .eq('id', playerCardData.card_id)
-                    .single();
-                  
-                  console.log('Player card loaded:', playerCard);
-                  setSelectedCard(playerCard || null);
-                  setIsStaking(playerCardData.is_staked);
+                  try {
+                    const playerCard = await fetchCardSafely(playerCardData.card_id);
+                    
+                    console.log('Player card loaded:', playerCard);
+                    setSelectedCard(playerCard || null);
+                    setIsStaking(playerCardData.is_staked);
+                  } catch (error) {
+                    console.error('Error loading player card:', error);
+                    toast.error('Error loading your card');
+                  }
                 }
                 
-                // Get opponent's card
+                // Get opponent's card using the safe fetch method
                 const opponentId = user.id === newBattle.player1_id 
                   ? newBattle.player2_id 
                   : newBattle.player1_id;
                   
                 const opponentCardData = battleCards.find(c => c.player_id === opponentId);
                 if (opponentCardData) {
-                  const { data: opponentCard } = await supabase
-                    .from('player_cards')
-                    .select('*')
-                    .eq('id', opponentCardData.card_id)
-                    .single();
-                  
-                  console.log('Opponent card loaded:', opponentCard);
-                  setOpponentCard(opponentCard || null);
+                  try {
+                    const opponentCard = await fetchCardSafely(opponentCardData.card_id);
+                    
+                    console.log('Opponent card loaded:', opponentCard);
+                    setOpponentCard(opponentCard || null);
+                  } catch (error) {
+                    console.error('Error loading opponent card:', error);
+                    toast.error('Error loading opponent card');
+                  }
                 }
               } else {
                 console.error('Expected 2 battle cards but found:', battleCards?.length);
