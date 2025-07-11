@@ -273,6 +273,25 @@ export default function BattlePage() {
     fetchBattleAndUser();
   }, [battleId, router]);
   
+  // Effect to check if battle can be started on page load or battle changes
+  useEffect(() => {
+    if (!battleId || !battle || !battle.id || !isCardSelectionPhase || battle.status !== 'selecting') return;
+    
+    // Check once on initial load and when battle changes
+    checkAndStartBattle();
+    
+    // Set up periodic check every 5 seconds if in selection phase
+    const intervalId = setInterval(() => {
+      if (battle.status === 'selecting') {
+        checkAndStartBattle();
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 5000);
+    
+    return () => clearInterval(intervalId);
+  }, [battleId, battle, isCardSelectionPhase]);
+
   // Subscribe to battle updates
   useEffect(() => {
     if (!battleId) return;
@@ -284,6 +303,8 @@ export default function BattlePage() {
             // Update battle state
             const newBattle = payload.new as BattleInstance;
             setBattle(newBattle);
+            
+            console.log('Battle update received:', newBattle.status);
             
             // Handle state transitions
             if (newBattle.status === 'active') {
@@ -413,6 +434,46 @@ export default function BattlePage() {
     setSelectedCard(card);
   };
   
+  // Function to check if battle can be started and force start it if necessary
+  const checkAndStartBattle = async () => {
+    if (!battle || !battleId || battle.status !== 'selecting') return;
+    
+    try {
+      console.log('Running checkAndStartBattle function...');
+      // Count how many cards have been submitted for this battle
+      const { count, error: countError } = await supabase
+        .from('battle_cards')
+        .select('*', { count: 'exact', head: true })
+        .eq('battle_id', battleId);
+      
+      if (countError) {
+        console.error('Error checking card count:', countError);
+        return;
+      }
+      
+      console.log('Current card count for battle:', count, 'Battle status:', battle.status);
+      
+      // If both players have submitted cards, start the battle
+      if (count === 2 && battle.status === 'selecting') {
+        console.log('Forcing battle to start - both cards are submitted');
+        
+        const { error: updateError } = await supabase
+          .from('battle_instances')
+          .update({ status: 'active' })
+          .eq('id', battleId);
+          
+        if (updateError) {
+          console.error('Error starting battle:', updateError);
+        } else {
+          console.log('Successfully started battle!'); 
+          toast.success('Battle starting!');
+        }
+      }
+    } catch (err) {
+      console.error('Error in checkAndStartBattle:', err);
+    }
+  };
+  
   // Submit card selection
   const handleSubmitCard = async () => {
     if (!selectedCard || !battle || !user) return;
@@ -465,19 +526,11 @@ export default function BattlePage() {
       
       toast.success('Card selection submitted!');
       
-      // Check if opponent has already selected
-      const { count } = await supabase
-        .from('battle_cards')
-        .select('*', { count: 'exact', head: true })
-        .eq('battle_id', battleId);
-        
-      if (count === 2 && battle.status === 'selecting') {
-        // Both players have selected, start the battle
-        await supabase
-          .from('battle_instances')
-          .update({ status: 'active' })
-          .eq('id', battleId);
-      }
+      // Call our check and start function
+      await checkAndStartBattle();
+      
+      // Also set a timer to check again in case of race conditions
+      setTimeout(() => checkAndStartBattle(), 3000);
     } catch (err) {
       console.error('Error in card submission:', err);
       toast.error('An unexpected error occurred');
