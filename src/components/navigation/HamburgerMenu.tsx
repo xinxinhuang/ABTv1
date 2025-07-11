@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, Home, LogOut, Package, User } from 'lucide-react';
+import { Menu, Home, LogOut, Package, User, Swords } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -69,6 +69,10 @@ export function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
         <DropdownMenuItem onClick={() => handleNavigation('/game/collection')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
           <User className="mr-2 h-4 w-4" />
           <span>Collection</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleNavigation('/game/arena')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+          <Swords className="mr-2 h-4 w-4" />
+          <span>Battle Arena</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="hover:bg-gray-100 dark:hover:bg-gray-700">

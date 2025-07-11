@@ -25,7 +25,7 @@ export async function POST() {
     }).single();
 
     // Create a new version of the function without inventory checks
-    const { data: _data, error } = await supabase.sql(`
+    const { error } = await supabase.rpc('exec', { query: `
       CREATE OR REPLACE FUNCTION public.open_pack_and_get_card(
         p_player_id UUID,
         p_timer_id UUID,
@@ -80,7 +80,7 @@ export async function POST() {
         SELECT * FROM public.player_cards WHERE id = v_card_id;
       END;
       $$;
-    `);
+    `});
 
     if (error) {
       console.error('Error updating function:', error);
@@ -91,7 +91,7 @@ export async function POST() {
     }
 
     // Also add a helper function to drop functions if needed
-    await supabase.sql(`
+    await supabase.rpc('exec', { query: `
       CREATE OR REPLACE FUNCTION public.drop_function_if_exists(function_name TEXT)
       RETURNS void
       LANGUAGE plpgsql
@@ -103,7 +103,7 @@ export async function POST() {
           -- Function doesn't exist or other error, just continue
       END;
       $$;
-    `);
+    `});
 
     return NextResponse.json({ 
       success: true,

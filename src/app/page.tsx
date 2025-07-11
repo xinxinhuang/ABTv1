@@ -51,6 +51,12 @@ export default function Home() {
               >
                 View Collection
               </Link>
+              <Link 
+                href="/game/arena"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
+              >
+                Battle Arena
+              </Link>
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

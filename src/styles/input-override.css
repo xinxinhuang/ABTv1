@@ -1,0 +1,11 @@
+/* Override for input fields to have darker text */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  color: #1a202c !important; /* Dark gray, almost black text */
+}
+
+/* Ensure placeholder text remains visible but distinct */
+::placeholder {
+  color: #a0aec0 !important; /* Medium gray for placeholders */
+}

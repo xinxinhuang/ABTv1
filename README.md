@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Booster Card Battle Game
+
+A Next.js application featuring card collection, booster packs, and an online battle arena with card staking mechanics.
+
+## Features
+
+- **Card Collection**: Collect humanoid and weapon cards
+- **Booster Packs**: Open time-gated booster packs to get new cards
+- **Battle Arena**: Challenge other players in online battles
+- **Card Staking**: Risk your cards in battles to win opponents' cards
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- Supabase account
+
+### Development Setup
+
+1. Clone the repository
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up environment variables in `.env.local`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+4. Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Database Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+After logging in to the application:
 
-## Learn More
+1. Navigate to `/admin/setup`
+2. Click the "Setup Database Schema" button to create all necessary tables
 
-To learn more about Next.js, take a look at the following resources:
+Alternatively, you can run the SQL schema manually in your Supabase SQL editor.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploying to Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Option 1: Deploy from GitHub
 
-## Deploy on Vercel
+1. Push your code to a GitHub repository
+2. Go to [Vercel](https://vercel.com/new)
+3. Import your GitHub repository
+4. Configure the following environment variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+5. Deploy!
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Option 2: Deploy Using Vercel CLI
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Install Vercel CLI:
+
+```bash
+npm i -g vercel
+```
+
+2. Login to Vercel:
+
+```bash
+vercel login
+```
+
+3. Deploy the application:
+
+```bash
+vercel
+```
+
+4. Follow the prompts to configure your project.
+
+### After Deployment
+
+1. After deploying, navigate to your application URL
+2. Log in to the application
+3. Go to `/admin/setup` and set up the database schema
+4. You're all set!
+
+## Key Technologies
+
+- Next.js 15.x
+- Supabase (Auth, Database, Real-time)
+- TailwindCSS
+- Framer Motion for animations

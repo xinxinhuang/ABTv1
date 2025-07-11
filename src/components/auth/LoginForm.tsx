@@ -4,15 +4,18 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
+import '@/styles/input-override.css';
 
-export function LoginForm() {
+type LoginFormProps = {
+  registered?: string | null;
+};
+
+export function LoginForm({ registered }: LoginFormProps = {}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const registered = searchParams.get('registered') as string | null;
   // Using the centralized supabase client
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {

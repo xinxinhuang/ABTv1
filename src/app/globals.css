@@ -19,6 +19,18 @@
   }
 }
 
+/* Fix for input text color - ensures better contrast against white backgrounds */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  color: #1a202c !important; /* Dark gray, almost black text */
+}
+
+/* Ensure placeholder text remains visible but distinct */
+::placeholder {
+  color: #718096 !important; /* Medium gray for placeholders */
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

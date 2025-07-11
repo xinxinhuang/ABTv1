@@ -11,7 +11,7 @@ export async function GET() {
     });
 
     // First check what the current constraint is
-    const { data: constraintInfo, error: _constraintCheckError } = await supabase.rpc(
+    const { data: constraintInfo, error: constraintCheckError } = await supabase.rpc(
       'exec',
       {
         query: `
@@ -29,7 +29,7 @@ export async function GET() {
     console.log('Current constraint info:', constraintInfo);
 
     // Drop the existing constraint and add the new one
-    const { data: _data, error: updateError } = await supabase.rpc(
+    const { error: updateError } = await supabase.rpc(
       'exec',
       {
         query: `
