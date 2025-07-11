@@ -349,17 +349,26 @@ export default function BattlePage() {
               }
               
               // Check if both players have selected cards
-              const { data: cardCount } = await supabase
+              const { count } = await supabase
                 .from('battle_cards')
-                .select('id', { count: 'exact' })
+                .select('*', { count: 'exact', head: true })
                 .eq('battle_id', battleId);
                 
-              if (cardCount === 2 && battle.status === 'selecting') {
+              console.log('Card count check:', { count, battleStatus: battle.status });
+                
+              if (count === 2 && battle.status === 'selecting') {
+                console.log('Starting battle - both cards selected');
                 // Both players have selected cards, start the battle
-                await supabase
+                const { error } = await supabase
                   .from('battle_instances')
                   .update({ status: 'active' })
                   .eq('id', battleId);
+                  
+                if (error) {
+                  console.error('Error updating battle status:', error);
+                } else {
+                  console.log('Battle status updated to active');
+                }
               }
             }
           }
