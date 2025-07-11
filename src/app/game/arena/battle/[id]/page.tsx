@@ -286,30 +286,57 @@ export default function BattlePage() {
             setBattle(newBattle);
             
             // Handle state transitions
-            if (newBattle.status === 'active' && !isBattlePhase) {
+            if (newBattle.status === 'active') {
+              console.log('Battle is now active - transitioning to battle phase');
               setIsCardSelectionPhase(false);
               setIsBattlePhase(true);
               
-              // Fetch opponent's card
-              const opponentId = user.id === newBattle.player1_id 
-                ? newBattle.player2_id 
-                : newBattle.player1_id;
-                
-              const { data: opponentCardData } = await supabase
+              // Fetch both players' cards to make sure we have the latest data
+              const { data: battleCards, error: cardsError } = await supabase
                 .from('battle_cards')
                 .select('*')
-                .eq('battle_id', battleId)
-                .eq('player_id', opponentId)
-                .single();
-                
-              if (opponentCardData) {
-                const { data: opponentCard } = await supabase
-                  .from('player_cards')
-                  .select('*')
-                  .eq('id', opponentCardData.card_id)
-                  .single();
+                .eq('battle_id', battleId);
+
+              if (cardsError) {
+                console.error('Error fetching battle cards:', cardsError);
+                return;
+              }
+              
+              console.log('Retrieved battle cards:', battleCards);
+              
+              if (battleCards && battleCards.length === 2) {
+                // Get player's card
+                const playerCardData = battleCards.find(c => c.player_id === user.id);
+                if (playerCardData) {
+                  const { data: playerCard } = await supabase
+                    .from('player_cards')
+                    .select('*')
+                    .eq('id', playerCardData.card_id)
+                    .single();
                   
-                setOpponentCard(opponentCard || null);
+                  console.log('Player card loaded:', playerCard);
+                  setSelectedCard(playerCard || null);
+                  setIsStaking(playerCardData.is_staked);
+                }
+                
+                // Get opponent's card
+                const opponentId = user.id === newBattle.player1_id 
+                  ? newBattle.player2_id 
+                  : newBattle.player1_id;
+                  
+                const opponentCardData = battleCards.find(c => c.player_id === opponentId);
+                if (opponentCardData) {
+                  const { data: opponentCard } = await supabase
+                    .from('player_cards')
+                    .select('*')
+                    .eq('id', opponentCardData.card_id)
+                    .single();
+                  
+                  console.log('Opponent card loaded:', opponentCard);
+                  setOpponentCard(opponentCard || null);
+                }
+              } else {
+                console.error('Expected 2 battle cards but found:', battleCards?.length);
               }
             } else if (newBattle.status === 'completed' && newBattle.winner_id) {
               // Set battle result
