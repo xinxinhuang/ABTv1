@@ -180,41 +180,36 @@ This document tracks the progress, issues, and solutions implemented during the 
    - This pattern ensures compatibility with Next.js 15's Promise-based route parameter handling
    - Added documentation and comments to explain this pattern for future development
 
-## Battle System Redesign
+## Real-Time Challenge and Battle System (July 12, 2025)
 
-### 1. Asynchronous Battle System
+### 1. System Architecture
 
-**Change**: Pivoted from real-time battles to an asynchronous challenge-based battle system.
+**Change**: Implemented a synchronous, real-time player-to-player challenge system, enabling live interaction and immediate gameplay.
 
 **Implementation**:
-- Players can create battle challenges by selecting and staking a card face-down
-- Challenges appear in the arena lobby for other players to accept
-- When a challenge is accepted, the battle is automatically resolved
-- Both players receive notifications about battle completion
-- Winner claims the loser's card and receives an additional bonus card
+- **Edge Functions**: Created two core Supabase Edge Functions to manage the backend logic:
+  - `challenge-player`: Handles the initial challenge request, validates players, and creates a 'pending' battle lobby in the `battle_lobbies` table.
+  - `respond-to-challenge`: Manages the response from the challenged player. It securely validates the user, updates the lobby status to 'active' on acceptance, or deletes the lobby on decline.
 
-**Benefits**:
-- Eliminates need for both players to be online simultaneously
-- Reduces server load and complexity by removing real-time synchronization
-- Creates a more accessible gameplay experience
-- Maintains the high-stakes nature of card battles
-- Simplifies battle flow and reduces potential for errors
+- **Real-Time Notifications**: Built a `RealtimeChallengeNotifier` React component that subscribes to user-specific Supabase channels.
+  - Listens for a `new_challenge` event and displays an interactive toast notification with 'Accept' and 'Decline' buttons.
+  - Listens for `challenge_accepted` and `challenge_declined` events to provide immediate feedback to the original challenger.
 
-### 2. Database Schema Updates
+- **Seamless Gameplay Loop**: When a challenge is accepted, both the challenger and the challenged player are automatically redirected to a dynamic battle page (`/battle/[lobbyId]`), ensuring a smooth transition into the game.
 
-**Changes**:
-- Modified `battle_instances` table to support challenge-based flow
-- Added `is_hidden` flag to `battle_cards` to keep selections secret
-- Created `battle_notifications` table for player alerts
-- Updated `battle_results` to track both transferred and bonus cards
+### 2. Key Bug Fixes and Technical Improvements
 
-### 3. User Interface Improvements
+- **CORS Resolution**: Systematically resolved all CORS preflight (OPTIONS) and request errors in the Edge Functions by implementing proper header management.
 
-**Changes**:
-- Created challenge creation interface
-- Implemented available challenges listing
-- Added battle results notification system
-- Updated card selection to support face-down staking
+- **Authentication Fix**: Corrected a critical authentication bug in the `respond-to-challenge` function. The initial implementation improperly used `auth.getUser()` with a service role key. The fix involved securely passing the `user_id` from the frontend to the backend for validation, which is the correct pattern for this architecture.
+
+- **UI and Routing**: Created a placeholder battle arena page at `/battle/[lobbyId]/page.tsx` to resolve 404 errors and establish the foundation for the gameplay interface.
+
+### 3. Benefits of the Real-Time System
+
+- **Immediate Engagement**: Players can engage in battles instantly without waiting, creating a more dynamic and exciting user experience.
+- **Simplified State**: The game state is managed in a clear, linear flow (challenge -> respond -> battle), reducing complexity compared to managing long-lived, asynchronous challenges.
+- **Foundation for Live Gameplay**: This architecture is the necessary foundation for building turn-based actions, live chat, and other real-time features within the battle arena.
 
 ## Next Steps
 
