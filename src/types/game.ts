@@ -37,3 +37,45 @@ export interface Profile {
   display_name?: string;
   avatar_url?: string;
 }
+
+// Battle-related interfaces for the asynchronous battle system
+export interface BattleInstance {
+  id: string;
+  player1_id: string;
+  player2_id: string; // Cannot be null in DB, use placeholder UUID for pending challenges
+  status: 'pending' | 'selecting' | 'active' | 'completed';
+  created_at: string;
+  updated_at: string;
+  winner_id: string | null;
+  completed_at: string | null;
+  transfer_completed: boolean;
+}
+
+export interface BattleCard {
+  id: string;
+  battle_id: string;
+  player_id: string;
+  card_id: string;
+  created_at: string;
+  is_hidden: boolean;
+}
+
+export interface BattleResult {
+  id: string;
+  battle_id: string;
+  winner_id: string;
+  loser_id: string;
+  explanation: string;
+  created_at: string;
+  transferred_card_id: string;
+  bonus_card_id: string;
+}
+
+export interface BattleNotification {
+  id: string;
+  battle_id: string;
+  user_id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}

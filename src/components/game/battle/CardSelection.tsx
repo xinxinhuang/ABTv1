@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card } from '@/types/game';
 import { CardDisplay } from '../CardDisplay';
+import { Button } from '@/components/ui/Button';
 import { 
   Tabs, 
   TabsContent, 
@@ -10,27 +11,30 @@ import {
   TabsTrigger 
 } from '@/components/ui/Tabs';
 import { ScrollArea } from '@/components/ui/ScrollArea';
+import { Loader2 } from 'lucide-react';
 
 interface CardSelectionProps {
   cards: Card[];
-  onSelectCard: (card: Card) => void;
+  onCardSelect: (card: Card) => void;
   selectedCard: Card | null;
+  isSubmitting: boolean;
 }
 
 export function CardSelection({ 
   cards, 
-  onSelectCard,
-  selectedCard 
+  onCardSelect,
+  selectedCard,
+  isSubmitting
 }: CardSelectionProps) {
   const [cardFilter, setCardFilter] = useState<'all' | 'space-marine' | 'galactic-ranger' | 'void-sorcerer'>('all');
   
-  const filteredCards = cards.filter(card => {
-    if (cardFilter === 'all') return true;
-    if (cardFilter === 'space-marine') return card.card_name === 'Space Marine';
-    if (cardFilter === 'galactic-ranger') return card.card_name === 'Galactic Ranger';
-    if (cardFilter === 'void-sorcerer') return card.card_name === 'Void Sorcerer';
-    return true;
-  });
+  // Improved filtering logic that's more flexible with card names
+  const filteredCards = cardFilter === 'all' 
+    ? cards 
+    : cards.filter(card => {
+        const normalizedCardName = card.card_name.toLowerCase().replace(/\s+/g, '-');
+        return normalizedCardName.includes(cardFilter) || cardFilter.includes(normalizedCardName);
+      });
 
   return (
     <div className="space-y-4">
@@ -39,7 +43,7 @@ export function CardSelection({
           <CardDisplay card={selectedCard} isRevealed={true} className="w-48 mx-auto" />
           <button 
             className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-            onClick={() => onSelectCard(selectedCard)}
+            onClick={() => onCardSelect(selectedCard)}
           >
             Change Selection
           </button>
@@ -55,16 +59,16 @@ export function CardSelection({
             </TabsList>
             
             <TabsContent value="all" className="mt-2">
-              <CardGrid cards={filteredCards} onSelectCard={onSelectCard} />
+              <CardGrid cards={filteredCards} onCardSelect={onCardSelect} isSubmitting={isSubmitting} />
             </TabsContent>
             <TabsContent value="space-marine" className="mt-2">
-              <CardGrid cards={filteredCards} onSelectCard={onSelectCard} />
+              <CardGrid cards={filteredCards} onCardSelect={onCardSelect} isSubmitting={isSubmitting} />
             </TabsContent>
             <TabsContent value="galactic-ranger" className="mt-2">
-              <CardGrid cards={filteredCards} onSelectCard={onSelectCard} />
+              <CardGrid cards={filteredCards} onCardSelect={onCardSelect} isSubmitting={isSubmitting} />
             </TabsContent>
             <TabsContent value="void-sorcerer" className="mt-2">
-              <CardGrid cards={filteredCards} onSelectCard={onSelectCard} />
+              <CardGrid cards={filteredCards} onCardSelect={onCardSelect} isSubmitting={isSubmitting} />
             </TabsContent>
           </Tabs>
         </>
@@ -73,21 +77,27 @@ export function CardSelection({
   );
 }
 
-function CardGrid({ cards, onSelectCard }: { cards: Card[], onSelectCard: (card: Card) => void }) {
+function CardGrid({ cards, onCardSelect, isSubmitting }: { cards: Card[], onCardSelect: (card: Card) => void, isSubmitting: boolean }) {
+  console.log('CardGrid received cards:', cards);
+  
   if (cards.length === 0) {
-    return <div className="text-center py-6 text-gray-500">No cards found</div>;
+    return <div className="text-center py-6 text-gray-500">No cards found. Please open some packs to get cards for battle.</div>;
   }
   
   return (
     <ScrollArea className="h-[400px] pr-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-1">
         {cards.map(card => (
-          <div
-            key={card.id}
-            className="cursor-pointer transform hover:scale-105 transition-transform"
-            onClick={() => onSelectCard(card)}
-          >
+          <div key={card.id}>
             <CardDisplay card={card} isRevealed={true} />
+            <Button 
+              className="w-full mt-2"
+              onClick={() => onCardSelect(card)}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Select
+            </Button>
           </div>
         ))}
       </div>

@@ -33,6 +33,26 @@ This document tracks the progress, issues, and solutions implemented during the 
   - `SUPABASE_SERVICE_ROLE_KEY`
 - Ensured proper configuration for both local development and production.
 
+### 5. Battle Page Component Refactor & Code Review
+
+**Problem**: The `BattlePage` component contained legacy code, had multiple type-mismatch and linting errors, and was difficult to maintain.
+
+**Solution**:
+- Conducted a full refactor of the `BattlePage` component (`/arena/battle/[id]/page.tsx`).
+- All business logic, state management, and real-time subscriptions were consolidated into the `useBattle` custom hook.
+- The `BattlePage` is now a lean presentational component that renders UI based on the state provided by the hook.
+- Resolved all outstanding linting and TypeScript errors by:
+  - Correcting import casing (`Button`).
+  - Fixing prop-type mismatches for child components (`CardSelection`, `BattleResults`, `BattleArena`).
+  - Adding type guards to handle temporary state objects (`{ id: 'selected' }`).
+  - Implementing the `handleBattleComplete` handler in the `useBattle` hook and passing it down correctly.
+  - Aligning the `BattleResult` type definition between the hook and the `BattleArena` component.
+
+**Code Review Outcome**:
+- A code review against `arena-development.md` and `battle-system.md` confirmed that the current implementation largely follows the documented battle flow and state machine.
+- **Identified Discrepancy**: The review revealed a potential duplication of battle resolution logic between the client-side `BattleArena.tsx` component and the server-side logic. This needs to be reconciled to ensure a single source of truth.
+- **Documentation Mismatch**: The system is implemented as a real-time battle system, not a purely asynchronous one as described in the docs. The documentation should be updated to reflect this.
+
 ### 4. Vercel Deployment Configuration
 
 **Problem**: Missing Vercel configuration for deployment.
@@ -145,15 +165,67 @@ This document tracks the progress, issues, and solutions implemented during the 
 
 3. **Enhanced Error Handling**: Added comprehensive error catching, user notifications, and detailed logging throughout the battle flow.
 
+4. **Next.js 15 Route Parameters Fix**: Identified and resolved issue with route parameters in Next.js 15+:
+   - In newer versions of Next.js (14+ and 15+), route parameters are now provided as a Promise that needs to be unwrapped before accessing
+   - Implemented solution using React's `use()` function to properly handle dynamic route parameters
+   - Updated dynamic route pages (like `/arena/battle/[id]/page.tsx`) to use the pattern:
+     ```tsx
+     export default function Page({ params }: { params: { id: string } }) {
+       // Unwrap params using React.use() to handle Promise
+       const resolvedParams = use(params);
+       const { id } = resolvedParams;
+       // ... rest of component
+     }
+     ```
+   - This pattern ensures compatibility with Next.js 15's Promise-based route parameter handling
+   - Added documentation and comments to explain this pattern for future development
+
+## Battle System Redesign
+
+### 1. Asynchronous Battle System
+
+**Change**: Pivoted from real-time battles to an asynchronous challenge-based battle system.
+
+**Implementation**:
+- Players can create battle challenges by selecting and staking a card face-down
+- Challenges appear in the arena lobby for other players to accept
+- When a challenge is accepted, the battle is automatically resolved
+- Both players receive notifications about battle completion
+- Winner claims the loser's card and receives an additional bonus card
+
+**Benefits**:
+- Eliminates need for both players to be online simultaneously
+- Reduces server load and complexity by removing real-time synchronization
+- Creates a more accessible gameplay experience
+- Maintains the high-stakes nature of card battles
+- Simplifies battle flow and reduces potential for errors
+
+### 2. Database Schema Updates
+
+**Changes**:
+- Modified `battle_instances` table to support challenge-based flow
+- Added `is_hidden` flag to `battle_cards` to keep selections secret
+- Created `battle_notifications` table for player alerts
+- Updated `battle_results` to track both transferred and bonus cards
+
+### 3. User Interface Improvements
+
+**Changes**:
+- Created challenge creation interface
+- Implemented available challenges listing
+- Added battle results notification system
+- Updated card selection to support face-down staking
+
 ## Next Steps
 
-1. Continue refining UI and gameplay features.
-2. Add more comprehensive error handling and user feedback.
-3. Implement additional battle mechanics and card effects.
-4. Add more robust testing for multiplayer interactions.
-5. Create admin tools for game balance adjustments.
-6. Monitor Vercel deployments and Supabase logs for any runtime issues.
+1. Continue refining UI and gameplay features
+2. Add more comprehensive error handling and user feedback
+3. Implement challenge filters and sorting options
+4. Add automated tournament system
+5. Create admin tools for game balance adjustments
+6. Implement card special abilities
+7. Monitor Vercel deployments and Supabase logs for any runtime issues
 
 ## Conclusion
 
-The Booster Card Battle application has undergone significant improvements in deployment configuration, UI readability, and game mechanics. The most critical fixes were related to the battle flow, ensuring both players can properly engage in battles with real-time synchronization and appropriate state transitions. The application now successfully builds and runs in production with all core battle arena features fully functional.
+The Booster Card Battle application has undergone significant improvements in deployment configuration, UI readability, and game mechanics. The pivot to an asynchronous battle system represents a major design shift that simplifies the technical implementation while enhancing the gameplay experience. This new approach maintains the high-stakes nature of card battles while making the game more accessible to players. The application now successfully builds and runs in production with all core features fully functional.

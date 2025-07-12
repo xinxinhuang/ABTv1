@@ -1,4 +1,20 @@
+# supabase/config.toml
+
 # For detailed configuration reference documentation, visit:
+# https://supabase.com/docs/reference/cli/config
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+
+[studio]
+port = 54323
+
+[realtime]
+enabled = true
+
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.

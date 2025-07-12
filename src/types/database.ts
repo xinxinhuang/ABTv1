@@ -1,4 +1,4 @@
-import type { Profile, PlayerInventory, Card, ActiveTimer } from './game';
+import type { Profile, PlayerInventory, Card, ActiveTimer, BattleInstance, BattleCard, BattleResult, BattleNotification } from './game';
 
 export interface Database {
   public: {
@@ -22,6 +22,26 @@ export interface Database {
         Row: ActiveTimer;
         Insert: Omit<ActiveTimer, 'id'>;
         Update: Partial<Omit<ActiveTimer, 'id'>>;
+      };
+      battle_instances: {
+        Row: BattleInstance;
+        Insert: Omit<BattleInstance, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<BattleInstance, 'id' | 'created_at'>>;
+      };
+      battle_cards: {
+        Row: BattleCard;
+        Insert: Omit<BattleCard, 'id' | 'created_at'>;
+        Update: Partial<Omit<BattleCard, 'id' | 'created_at'>>;
+      };
+      battle_results: {
+        Row: BattleResult;
+        Insert: Omit<BattleResult, 'id' | 'created_at'>;
+        Update: Partial<Omit<BattleResult, 'id' | 'created_at'>>;
+      };
+      battle_notifications: {
+        Row: BattleNotification;
+        Insert: Omit<BattleNotification, 'id' | 'created_at'>;
+        Update: Partial<Omit<BattleNotification, 'id' | 'created_at'>>;
       };
     };
   };

@@ -1,53 +1,56 @@
 # Arena Development Summary
 
-## Current Implementation (as of July 10, 2025)
+## Current Implementation (as of July 11, 2025)
 
 ### Overview
 
-We've implemented an online battle system for the ABT Booster Game that allows players to challenge each other remotely in real-time PvP matches. The battle system follows a rock-paper-scissors style combat mechanic with card type advantages and attribute-based resolution, while leveraging Supabase for player authentication and real-time battle synchronization.
+We've implemented a real-time battle system for the ABT Booster Game that allows players to create and accept battle challenges with pre-selected cards. The system follows a "stake and play" model where players put up one of their cards as a stake, with the winner claiming the loser's card plus receiving a bonus card. The battle system follows a rock-paper-scissors style combat mechanic with card type advantages and attribute-based resolution, while leveraging Supabase for player authentication, battle state management, and card ownership transfers.
 
 ### Core Features
 
-1. **Online Battle Arena Interface**
-   - Online opponent selection menu
-   - Real-time battle synchronization
-   - Battle visualization with animations
-   - Results display with battle explanation
+1. **Real-Time Battle Arena Interface**
+   - Challenge creation interface
+   - Available challenges listing
+   - Face-down card staking system
+   - Automated battle resolution
+   - Results notification system
    - Match history tracking
-   - Rematch request system
-   - Card staking system (winner takes loser's card)
+   - Card transfer system (winner takes loser's card)
+   - Bonus card reward for winners
 
 2. **Card Selection**
    - Access to player's personal card inventory
    - Filtering by card type (Space Marine, Galactic Ranger, Void Sorcerer)
    - Visual selection interface with card preview
-   - Deck preset saving and loading functionality
+   - Card staking confirmation
+   - Hidden card information until battle resolution
 
 3. **Battle Mechanics**
    - Type advantage system: Void Sorcerer > Space Marine > Galactic Ranger > Void Sorcerer
    - Attribute-based resolution for same-type battles
    - Consideration of card rarity through their attribute values
-   - Card ownership transfer system (cards retain original owner's branding)
+   - Automated card ownership transfer system
+   - Bonus card generation for winners
    - Risk/reward staking mechanics
 
 ### Technical Components
 
 1. **Pages and Components**
-   - `src/app/game/arena/page.tsx`: Main arena page component
-   - `src/app/game/arena/lobby/page.tsx`: Online player lobby
-   - `src/app/game/arena/battle/[battleId]/page.tsx`: Dynamic battle instance page
-   - `src/components/game/battle/OpponentSelection.tsx`: Online opponent selection
-   - `src/components/game/battle/CardSelection.tsx`: Card selection UI
-   - `src/components/game/battle/BattleArena.tsx`: Battle logic and animation
-   - `src/components/game/battle/BattleResults.tsx`: Results display
-   - `src/components/game/battle/ChatWidget.tsx`: In-game chat functionality
+   - `src/app/game/arena/page.tsx`: Main arena navigation page
+   - `src/app/game/arena/lobby/page.tsx`: Challenge listing and creation page
+   - `src/app/game/arena/battle/[id]/page.tsx`: Battle results viewing page
+   - `src/components/game/battle/CreateChallenge.tsx`: Challenge creation interface
+   - `src/components/game/battle/ChallengeList.tsx`: Available challenges display
+   - `src/components/game/battle/CardSelection.tsx`: Card selection interface
+   - `src/components/game/battle/BattleResults.tsx`: Results display component
+   - `src/components/game/battle/Notifications.tsx`: Battle notification component
    - `src/components/ui/ScrollArea.tsx`: Custom scroll area for card lists
 
 2. **Navigation Integration**
-   - Added Battle Arena to hamburger menu
-   - Added Battle Arena link to homepage
-   - Online status indicator in navigation
-   - Battle request notifications
+   - Battle Arena section in main navigation
+   - Challenge count badge showing available challenges
+   - Notification indicator for completed battles
+   - Battle history access in user profile
    - Consistent navigation structure with other game sections
 
 3. **Visual Design**
@@ -101,17 +104,32 @@ if (card1.card_name === 'Void Sorcerer' && card2.card_name === 'Space Marine') {
 
 ### User Flow
 
-1. Player navigates to the Battle Arena Lobby
-2. Player sees a list of online opponents
-3. Player selects an opponent and sends a challenge (choosing stake or no-stake mode)
-4. When accepted, both players are redirected to a battle instance
-5. Each player selects a card from their own inventory (with clear indication of staking)
-6. System synchronizes selections and displays "Ready" status
-7. Battle begins with animation and countdown
-8. System determines and displays the winner with explanation
-9. Winner receives loser's card (if staked mode was selected)
-10. Card ownership transfer animation is displayed
-11. Players can request a rematch or return to lobby
+#### Creating a Challenge
+1. Player navigates to Arena page
+2. Player selects "Create Challenge" button
+3. Player browses their collection to select a card to stake
+4. Player confirms challenge creation
+5. System creates battle instance with status "awaiting_opponent"
+6. Challenge appears in the arena lobby for other players
+
+#### Accepting a Challenge
+1. Player navigates to Arena lobby
+2. Player views list of available challenges
+3. Player selects a challenge to accept
+4. Player browses their collection to select a card to stake
+5. Player confirms challenge acceptance
+6. System updates battle status to "in_progress" and automatically resolves the battle
+7. System determines the winner based on card types and attributes
+8. System transfers the loser's card to the winner's collection
+9. System generates a bonus card for the winner
+10. Both players receive notifications about battle completion
+
+#### Viewing Results
+1. Player receives notification about battle completion
+2. Player navigates to battle results page
+3. Player views both cards and battle outcome explanation
+4. Winner sees confirmation of card transfer and bonus card
+5. Players can request a rematch or return to lobby
 
 ## Current Implementation
 
@@ -121,37 +139,53 @@ The online battle system uses the following Supabase tables:
 
 ```sql
 -- Online player tracking
-create table public.online_players (
-  id uuid references auth.users not null primary key,
-  last_seen timestamp with time zone default now(),
-  status text default 'online' check (status in ('online', 'in_battle', 'away'))
-);
-
--- Battle instances
 create table public.battle_instances (
-  id uuid default uuid_generate_v4() primary key,
-  player1_id uuid references auth.users not null,
-  player2_id uuid references auth.users not null,
-  status text default 'pending' check (status in ('pending', 'active', 'completed')),
-  winner_id uuid references auth.users,
+  id uuid references auth.users not null primary key,
+  challenger_id uuid references auth.users not null,
+  opponent_id uuid references auth.users,
+  status text default 'awaiting_opponent' check (status in ('awaiting_opponent', 'in_progress', 'completed')),
   created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now(),
+  winner_id uuid references auth.users,
   completed_at timestamp with time zone
 );
 
--- Battle card selections
+-- battle_cards: Tracks cards staked for each battle
 create table public.battle_cards (
+  id uuid default uuid_generate_v4() primary key,
   battle_id uuid references public.battle_instances not null,
   player_id uuid references auth.users not null,
-  card_id uuid references public.player_cards not null,
-  is_staked boolean default true,
-  selected_at timestamp with time zone default now(),
-  primary key (battle_id, player_id)
+  card_id uuid references public.cards not null,
+  created_at timestamp with time zone default now(),
+  is_hidden boolean default true
 );
 
--- Card ownership history
+-- battle_results: Records battle outcomes
+create table public.battle_results (
+  id uuid default uuid_generate_v4() primary key,
+  battle_id uuid references public.battle_instances not null,
+  winner_id uuid references auth.users not null,
+  loser_id uuid references auth.users not null,
+  explanation text not null,
+  created_at timestamp with time zone default now(),
+  transferred_card_id uuid references public.cards not null,
+  bonus_card_id uuid references public.cards not null
+);
+
+-- battle_notifications: Stores notifications for players
+create table public.battle_notifications (
+  id uuid default uuid_generate_v4() primary key,
+  battle_id uuid references public.battle_instances not null,
+  user_id uuid references auth.users not null,
+  message text not null,
+  is_read boolean default false,
+  created_at timestamp with time zone default now()
+);
+
+-- card_ownership_history: Tracks card ownership history
 create table public.card_ownership_history (
   id uuid default uuid_generate_v4() primary key,
-  card_id uuid references public.player_cards not null,
+  card_id uuid references public.cards not null,
   previous_owner_id uuid references auth.users not null,
   new_owner_id uuid references auth.users not null,
   battle_id uuid references public.battle_instances not null,
@@ -501,7 +535,11 @@ For our high-stakes battle system with card ownership transfers, we follow these
 
 ## Conclusion
 
-The online arena system transforms the ABT Booster Game into a high-stakes competitive multiplayer experience. The card staking mechanic where winners take losers' cards adds significant risk and reward to each battle, while the permanent branding of cards with their original owner's ID creates a unique collection meta-game and ownership history. This system successfully leverages Supabase's real-time capabilities to create seamless player-versus-player battles while maintaining a dynamic card economy. The integration with the existing unlimited card pack mechanics provides players with a complete progression loop from opening packs to battling online opponents with real consequences. Future development will focus on refining the matchmaking system, expanding competitive features, and creating a thriving battle community driven by the high-stakes card economy.
+The real-time battle arena system transforms the ABT Booster Game into a high-stakes competitive experience with a unique "challenge and claim" mechanic. Players can create battle challenges by staking cards face-down, which other players can accept. This real-time approach requires both players to be online simultaneously, creating an intense and immediate PvP competition.
+
+The card staking mechanic where winners claim the loser's card plus receive a bonus card creates a compelling risk-reward dynamic. This system successfully leverages Supabase's database capabilities to handle battle state management, card transfers, and notifications automatically without requiring real-time player interaction during the battle itself.
+
+The integration with the existing unlimited card pack mechanics provides players with a complete progression loop: opening packs to collect cards, strategically staking them in battles, and growing their collection through victories. Future development will focus on expanding the challenge system with filters and tournaments, implementing card special abilities, and creating a thriving battle community driven by the high-stakes card economy.
 
 ---
 
