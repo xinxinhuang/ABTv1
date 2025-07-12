@@ -1,42 +1,70 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Card } from '@/types/game';
-import { CardDisplay } from '../CardDisplay';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { CardSelection } from './CardSelection';
+import { BattleGrid } from './BattleGrid';
+import { BattleResults } from './BattleResults';
+import { BattleLobby } from '../../../types/battle';
 
 interface BattleArenaProps {
-  player1Card: Card | null;
-  player2Card: Card | null;
+  initialLobby: BattleLobby;
 }
 
-export function BattleArena({ player1Card, player2Card }: BattleArenaProps) {
-  return (
-    <div className="relative w-full h-[600px] flex items-center justify-center p-4 bg-gray-900/50 rounded-lg overflow-hidden">
-      <div className="grid grid-cols-2 gap-8 w-full max-w-4xl">
-        <motion.div
-          initial={{ x: -200, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 50, delay: 0.2 }}
-        >
-          {player1Card ? (
-            <CardDisplay card={player1Card} />
-          ) : (
-            <div className="w-full h-full bg-gray-800/50 rounded-lg flex items-center justify-center text-white">Player 1's Card</div>
-          )}
-        </motion.div>
+const BattleArena = ({ initialLobby }: BattleArenaProps) => {
+  const [lobby, setLobby] = useState<BattleLobby | null>(initialLobby);
+  const supabase = createClient();
 
-        <motion.div
-          initial={{ x: 200, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 50, delay: 0.2 }}
-        >
-          {player2Card ? (
-            <CardDisplay card={player2Card} />
-          ) : (
-            <div className="w-full h-full bg-gray-800/50 rounded-lg flex items-center justify-center text-white">Player 2's Card</div>
-          )}
-        </motion.div>
-      </div>
+  useEffect(() => {
+    setLobby(initialLobby);
+  }, [initialLobby]);
+
+  useEffect(() => {
+    if (!lobby?.id) return;
+
+    const channel = supabase
+      .channel(`battle:${lobby.id}`)
+      .on('broadcast', { event: '*' }, (payload) => {
+        console.log('Broadcast received!', payload);
+        const newState = payload.payload.newState;
+        if (newState) {
+          setLobby(newState);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [lobby?.id, supabase]);
+
+  if (!lobby) {
+    return <div className="text-center p-8">Loading battle...</div>;
+  }
+
+  const renderBattleState = () => {
+    switch (lobby.status) {
+      case 'card_selection':
+        return <CardSelection lobby={lobby} />;
+      case 'in_progress':
+        return <BattleGrid lobby={lobby} />;
+      case 'finished_player1_won':
+      case 'finished_player2_won':
+      case 'completed': // Fallback for generic completed status
+        return <BattleResults lobby={lobby} onClose={() => setLobby(null)} />;
+      case 'pending':
+        return <div className="text-center p-8">Waiting for opponent to accept the challenge...</div>;
+      default:
+        return <div className="text-center p-8">An unexpected error occurred.</div>;
+    }
+  };
+
+  return (
+    <div className="w-full h-full bg-gray-800 text-white p-4">
+      <h1 className="text-2xl font-bold mb-4">Battle Arena - Lobby: {lobby.id}</h1>
+      {renderBattleState()}
     </div>
   );
-}
+};
+
+export default BattleArena;

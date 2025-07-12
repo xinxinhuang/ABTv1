@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CardSelection } from './CardSelection';
+import { CardSelector } from './CardSelector';
 import { supabase } from '@/lib/supabase/client';
 import { Card } from '@/types/game';
 import { Button } from '@/components/ui/Button';
@@ -56,7 +56,7 @@ export default function AcceptChallengeModal({
       };
       fetchPlayerCards();
     }
-  }, [isOpen, supabase, toast]);
+  }, [isOpen, toast]);
 
   const handleAcceptChallenge = async () => {
     if (!selectedCard) {
@@ -100,10 +100,10 @@ export default function AcceptChallengeModal({
           <div className="flex justify-center items-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
         ) : (
           <div>
-            <CardSelection 
-              cards={playerCards} 
-              onCardSelect={(card) => setSelectedCard(card)} 
-              selectedCard={selectedCard} 
+            <CardSelector 
+              cards={playerCards}
+              onCardSelect={(card: Card) => setSelectedCard(card)}
+              selectedCard={selectedCard}
               isSubmitting={isSubmitting}
             />
             <div className="flex justify-end gap-2 mt-4">

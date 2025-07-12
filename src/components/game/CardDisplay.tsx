@@ -9,6 +9,8 @@ interface CardDisplayProps {
   onClose?: () => void;
   isRevealed?: boolean;
   className?: string;
+  isSelected?: boolean;
+  isSelectable?: boolean;
 }
 
 const rarityStyles = {
@@ -29,14 +31,18 @@ export function CardDisplay({
   card, 
   onClose, 
   isRevealed = true,
-  className = '' 
+  className = '',
+  isSelected = false,
+  isSelectable = false
 }: CardDisplayProps) {
   if (!card) return null;
 
   const cardContent = (
     <Card className={cn('w-full max-w-sm border-4 transition-all duration-300', 
       rarityStyles[card.rarity],
-      className
+      className,
+      { 'ring-2 ring-offset-2 ring-blue-500': isSelected },
+      { 'cursor-pointer hover:scale-105': isSelectable }
     )}>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">{card.card_name}</CardTitle>

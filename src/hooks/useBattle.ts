@@ -57,6 +57,77 @@ export const useBattle = (battleId: string) => {
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [isStaking, setIsStaking] = useState(true); // Default to staking
 
+  const handleBattleComplete = useCallback(async (result: BattleResult) => {
+    if (!user || !battle || !selectedCard || !opponentCard || opponentCard.id === 'selected') return;
+
+    const winnerId = result.winner === 'player1' ? battle.player1_id : (result.winner === 'player2' ? battle.player2_id : null);
+    
+    try {
+      // Mark battle as completed with winner
+      const { error } = await supabase.from('battle_instances').update({
+        status: 'completed',
+        winner_id: winnerId,
+        completed_at: new Date().toISOString(),
+      }).eq('id', battle.id);
+
+      if (error) throw error;
+
+      setBattleResult(result);
+      toast.success(result.message);
+
+      // Handle card transfer if there was a winner (not a draw)
+      if (winnerId) {
+        // Get battle cards with staked status
+        const { data: battleCards, error: battleCardsError } = await supabase
+          .from('battle_cards')
+          .select('*')
+          .eq('battle_id', battle.id);
+          
+        if (battleCardsError) {
+          console.error('Error fetching battle cards for transfer:', battleCardsError);
+          toast.error('Error processing card transfer');
+          return;
+        }
+        
+        // Find all staked cards that belong to the loser
+        const stakedCards = battleCards?.filter(card => 
+          card.is_staked && card.player_id !== winnerId
+        ) || [];
+        
+        console.log(`Found ${stakedCards.length} staked cards to transfer to winner ${winnerId}`);
+        
+        if (stakedCards.length > 0) {
+          // Transfer all staked cards to winner by updating player_cards table
+          for (const stakedCard of stakedCards) {
+            const { error: transferError } = await supabase
+              .from('player_cards')
+              .update({ player_id: winnerId })
+              .eq('card_id', stakedCard.card_id);
+              
+            if (transferError) {
+              console.error('Failed to transfer card:', transferError);
+              toast.error('Error transferring staked card.');
+            } else {
+              console.log(`Successfully transferred card ${stakedCard.card_id} to winner ${winnerId}`);
+            }
+          }
+          
+          // Set transfer_completed flag on battle instance
+          await supabase
+            .from('battle_instances')
+            .update({ transfer_completed: true })
+            .eq('id', battle.id);
+            
+          toast.success('Staked cards transferred to winner!');
+        }
+      }
+
+    } catch (error) {
+      console.error('Error completing battle:', error);
+      toast.error('An error occurred while finalizing the battle.');
+    }
+  }, [battle, user, selectedCard, opponentCard]);
+
   const fetchBattleAndUser = useCallback(async () => {
     const { data: { session }, } = await supabase.auth.getSession();
     if (!session) {
@@ -66,7 +137,8 @@ export const useBattle = (battleId: string) => {
     }
     setUser(session.user);
 
-    let { data: battleData, error: battleError } = await supabase.from('battle_instances').select('*').eq('id', battleId).single();
+    const { data: initialBattleData, error: battleError } = await supabase.from('battle_instances').select('*').eq('id', battleId).single();
+    let battleData = initialBattleData;
 
     if (battleError || !battleData) {
       toast.error('Battle not found or an error occurred.');
@@ -203,9 +275,9 @@ export const useBattle = (battleId: string) => {
     }
 
     setIsLoading(false);
-  }, [battleId, router]);
+  }, [battleId, router, handleBattleComplete, user]);
 
-    useEffect(() => {
+  useEffect(() => {
     fetchBattleAndUser();
 
     const channel = supabase.channel(`battle-${battleId}`)
@@ -224,7 +296,8 @@ export const useBattle = (battleId: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [battleId, fetchBattleAndUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [battleId, router]);
 
   const handleCardSelect = async (cardId: string) => {
     if (!user || !battle || selectedCard) return;
@@ -250,76 +323,7 @@ export const useBattle = (battleId: string) => {
     }
   };
 
-  const handleBattleComplete = useCallback(async (result: BattleResult) => {
-    if (!user || !battle || !selectedCard || !opponentCard || opponentCard.id === 'selected') return;
 
-    const winnerId = result.winner === 'player1' ? battle.player1_id : (result.winner === 'player2' ? battle.player2_id : null);
-    
-    try {
-      // Mark battle as completed with winner
-      const { error } = await supabase.from('battle_instances').update({
-        status: 'completed',
-        winner_id: winnerId,
-        completed_at: new Date().toISOString(),
-      }).eq('id', battle.id);
-
-      if (error) throw error;
-
-      setBattleResult(result);
-      toast.success(result.message);
-
-      // Handle card transfer if there was a winner (not a draw)
-      if (winnerId) {
-        // Get battle cards with staked status
-        const { data: battleCards, error: battleCardsError } = await supabase
-          .from('battle_cards')
-          .select('*')
-          .eq('battle_id', battle.id);
-          
-        if (battleCardsError) {
-          console.error('Error fetching battle cards for transfer:', battleCardsError);
-          toast.error('Error processing card transfer');
-          return;
-        }
-        
-        // Find all staked cards that belong to the loser
-        const stakedCards = battleCards?.filter(card => 
-          card.is_staked && card.player_id !== winnerId
-        ) || [];
-        
-        console.log(`Found ${stakedCards.length} staked cards to transfer to winner ${winnerId}`);
-        
-        if (stakedCards.length > 0) {
-          // Transfer all staked cards to winner by updating player_cards table
-          for (const stakedCard of stakedCards) {
-            const { error: transferError } = await supabase
-              .from('player_cards')
-              .update({ player_id: winnerId })
-              .eq('card_id', stakedCard.card_id);
-              
-            if (transferError) {
-              console.error('Failed to transfer card:', transferError);
-              toast.error('Error transferring staked card.');
-            } else {
-              console.log(`Successfully transferred card ${stakedCard.card_id} to winner ${winnerId}`);
-            }
-          }
-          
-          // Set transfer_completed flag on battle instance
-          await supabase
-            .from('battle_instances')
-            .update({ transfer_completed: true })
-            .eq('id', battle.id);
-            
-          toast.success('Staked cards transferred to winner!');
-        }
-      }
-
-    } catch (error) {
-      console.error('Error completing battle:', error);
-      toast.error('An error occurred while finalizing the battle.');
-    }
-  }, [battle, user, isStaking, selectedCard, opponentCard]);
 
   const handleReturnToLobby = () => {
     router.push('/game/arena');

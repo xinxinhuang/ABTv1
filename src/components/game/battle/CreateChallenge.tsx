@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CardSelection } from './CardSelection';
+import { CardSelector } from './CardSelector';
 import { supabase } from '@/lib/supabase/client';
 import { Card } from '@/types/game';
 import { Button } from '@/components/ui/Button';
@@ -48,7 +48,7 @@ export default function CreateChallenge() {
     };
 
     fetchPlayerCards();
-  }, [supabase, toast]);
+  }, [toast]);
 
   const handleCardSelect = (card: Card) => {
     setSelectedCard(card);
@@ -144,11 +144,11 @@ export default function CreateChallenge() {
         </div>
       )}
       {isSelecting && (
-        <div>
-          <h3 className='text-lg font-semibold text-center mb-4'>Choose Your Champion</h3>
-          <CardSelection 
-            cards={playerCards} 
-            onCardSelect={handleCardSelect} 
+        <div className="mt-4">
+          <h3 className="text-lg font-semibold mb-2">Select a Card to Battle</h3>
+          <CardSelector 
+            cards={playerCards}
+            onCardSelect={handleCardSelect}
             selectedCard={selectedCard} 
             isSubmitting={isSubmitting}
           />

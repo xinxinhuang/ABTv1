@@ -1,4 +1,32 @@
--- Create battle-related tables
+-- Drop old asynchronous battle system tables
+DROP TABLE IF EXISTS battle_cards;
+DROP TABLE IF EXISTS battle_instances;
+
+-- Create the new table for managing live battle lobbies and state
+CREATE TABLE battle_lobbies (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    player1_id uuid REFERENCES profiles(id) NOT NULL,
+    player2_id uuid REFERENCES profiles(id) NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending, active, card_selection, in_progress, completed, cancelled
+    battle_state jsonb,
+    winner_id uuid REFERENCES profiles(id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Add a trigger to automatically update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_battle_lobbies_updated_at
+BEFORE UPDATE ON battle_lobbies
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 CREATE TABLE IF NOT EXISTS public.battle_instances (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   challenger_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
