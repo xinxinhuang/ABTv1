@@ -90,6 +90,11 @@ This document tracks the progress, issues, and solutions implemented during the 
 - Changed from using `.select('id', { count: 'exact' })` to `.select('*', { count: 'exact', head: true })`.
 - Added detailed logging for battle status transitions.
 - Fixed the comparison logic that checks if both players have selected their cards.
+- Implemented a robust periodic check to ensure battles transition properly:
+  - Added a `checkAndStartBattle()` function that verifies if both cards are submitted
+  - Set up multiple redundant checks with intervals to prevent stuck battles
+  - Added console logging to trace battle progression
+  - Included toast notifications to inform players when battle is starting
 
 **Problem 4**: Opponent's card not revealed after both players submitted cards.
 
@@ -98,6 +103,19 @@ This document tracks the progress, issues, and solutions implemented during the 
 - Removed condition that prevented UI updates after the initial battle phase transition.
 - Added explicit error handling and validation for card loading.
 - Enhanced logging to track the entire battle flow.
+
+**Problem 5**: 406 Not Acceptable errors when loading cards during battle.
+
+**Solution 5**:
+- Improved Supabase client configuration with more permissive Accept headers:
+  - Changed `Accept` header to `*/*` to handle any response content type
+  - Removed unnecessary custom headers that caused compatibility issues
+- Created a safe card fetching utility function (`fetchCardSafely`) that:
+  - Provides comprehensive error handling for API failures
+  - Gracefully handles null/undefined values
+  - Adds proper error logging for debugging
+- Updated battle page to use the safe fetching function with try/catch blocks
+- Added user-friendly toast notifications for error feedback
 
 ## Technical Improvements
 
@@ -118,6 +136,14 @@ This document tracks the progress, issues, and solutions implemented during the 
 - Ensured the battle state is always managed on the server-side through Supabase.
 - Implemented proper transition checks to prevent state inconsistencies.
 - Added validation to ensure game actions happen in the correct order.
+
+## Recent Progress (July 11, 2025)
+
+1. **Robust Battle Transition**: Fixed issue with battles not starting after card selection through multi-layered monitoring and forced state transition.
+
+2. **Reliable Card Loading**: Resolved 406 Not Acceptable errors when loading card data by implementing proper header configurations and creating a safe fetching utility.
+
+3. **Enhanced Error Handling**: Added comprehensive error catching, user notifications, and detailed logging throughout the battle flow.
 
 ## Next Steps
 
