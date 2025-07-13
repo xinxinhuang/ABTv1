@@ -74,7 +74,6 @@ export const BattleHistory = ({
     };
     
     fetchBattleHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, supabase, limit]);
 
   const getBattleResult = (battle: BattleHistoryItem) => {

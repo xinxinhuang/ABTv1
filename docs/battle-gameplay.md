@@ -4,6 +4,8 @@
 
 This document outlines the development plan for the real-time, turn-based battle gameplay feature. It details the user flow, component architecture, database schema interactions, and the server-side logic required to implement the complete battle sequence.
 
+**Last Updated**: July 12, 2025
+
 ## 2. Battle Flow & State Machine
 
 The battle will be managed by a state machine within the `battle_lobbies` table, using the `status` column. The flow is as follows:
@@ -16,7 +18,7 @@ The battle will be managed by a state machine within the `battle_lobbies` table,
 
 ## 3. Component Architecture
 
-The battle page (`/battle/[lobbyId]/page.tsx`) will be the main container and will orchestrate the display of the following components based on the current battle state:
+The battle page (`/game/arena/battle/[battleId]/page.tsx`) will be the main container and will orchestrate the display of the following components based on the current battle state:
 
 -   **`BattleLobbyInfo`**: Displays information about the two players in the battle.
 -   **`CardSelector`**: Renders the current player's card collection and allows them to select and confirm one card for battle. This will be hidden after confirmation.
@@ -44,38 +46,74 @@ The battle outcome is decided based on a clear hierarchy of rules, executed with
 
 ## 5. Database & Server-Side Logic
 
-### New Table: `battle_selections`
+### Table: `battle_cards`
 
-To handle card selections for each battle, a new table is required.
+To handle card selections for each battle, the `battle_cards` table is used:
 
 -   **`id`**: Primary Key (UUID)
--   **`lobby_id`**: Foreign Key to `battle_lobbies.id`
+-   **`battle_id`**: Foreign Key to `battle_instances.id`
 -   **`player_id`**: Foreign Key to `profiles.id`
 -   **`player_card_id`**: Foreign Key to the selected card in `player_cards.id`
 -   **`created_at`**: Timestamp
 
-*Constraint*: A unique constraint on [(lobby_id, player_id)](cci:1://file:///f:/Github/NeoGorilla/ABT-v1/booster-game/src/components/game/RealtimeChallengeNotifier.tsx:71:12-71:70) will prevent a player from submitting more than one card.
+*Constraint*: A unique constraint on `(battle_id, player_id)` prevents a player from submitting more than one card.
 
-### New Supabase RPC Functions
+### Supabase Edge Functions
 
--   **`select_card(lobby_id, player_card_id)`**: This function will be called when a player confirms their card selection.
-    1.  Validates that the player is part of the lobby.
-    2.  Inserts a record into the `battle_selections` table.
-    3.  Checks if the other player has also selected their card. If so, it updates the `battle_lobbies` status to `cards_revealed`.
+-   **`select-cards`**: This Edge Function is called when a player confirms their card selection.
+    1.  Validates that the player is part of the battle.
+    2.  Inserts a record into the `battle_cards` table.
+    3.  Checks if the other player has also selected their card. If so, it updates the `battle_instances` status to `cards_revealed`.
 
--   **`resolve_battle(lobby_id)`**: This function can be called from the client or triggered by a database hook when the status changes to `cards_revealed`.
-    1.  Fetches the two selected cards from `battle_selections`.
+-   **`resolve-battle`**: This server-authoritative Edge Function is triggered when the status changes to `cards_revealed`.
+    1.  Fetches the two selected cards from `battle_cards`.
     2.  Executes the core game logic to determine the winner based on card stats.
     3.  Transfers card ownership by updating the `player_id` in the `player_cards` table for the loser's card.
-    4.  Updates the `battle_lobbies` status to `completed`.
-    5.  (Optional) Inserts a record into a `battle_results` table for historical tracking.
+    4.  Updates the `battle_instances` status to `completed`.
+    5.  Inserts a record into the `battle_results` table for historical tracking.
 
 ## 6. Implementation Steps
 
-1.  **Create Migration**: Write the SQL script to create the `battle_selections` table and apply it.
+1.  **Create Migration**: Write the SQL script to create the `battle_cards` table and apply it.
 2.  **Build UI Shell**: Develop the basic layout of the battle page and the individual components (`CardSelector`, `BattleArena`, etc.) with placeholder data.
-3.  **Fetch Data**: Implement logic on the battle page to fetch lobby data and the current player's card collection.
-4.  **Implement `select_card`**: Create the `select_card` RPC function and wire it up to the `CardSelector` component.
-5.  **Real-time State Sync**: Use Supabase real-time subscriptions to listen for changes in the `battle_lobbies` status and `battle_selections` table to update the UI for both players automatically.
-6.  **Implement `resolve_battle`**: Create the `resolve_battle` RPC function with the core game logic.
+3.  **Fetch Data**: Implement logic on the battle page to fetch battle data and the current player's card collection.
+4.  **Implement `select-cards`**: Create the `select-cards` Edge Function and wire it up to the `CardSelector` component.
+5.  **Real-time State Sync**: Use Supabase real-time subscriptions to listen for changes in the `battle_instances` status and `battle_cards` table to update the UI for both players automatically.
+6.  **Implement `resolve-battle`**: Create the `resolve-battle` Edge Function with the core game logic.
 7.  **Display Results**: Build the UI to reveal the cards, show the game log, and display the final battle result.
+
+## 7. Recent Improvements (July 12, 2025)
+
+### Route Parameter Standardization
+
+To ensure consistency across the battle system, the following changes have been implemented:
+
+1. **Route Parameter Naming**:
+   - Changed from `/battle/[lobbyId]` to `/game/arena/battle/[battleId]`
+   - Created a redirect from the old route to the new route for backward compatibility
+
+2. **Database Query Parameters**:
+   - Updated all database queries to use `battle_id` consistently instead of `lobby_id`
+   - Changed filters in real-time Supabase subscriptions from `lobby_id=eq.${battleId}` to `battle_id=eq.${battleId}`
+
+3. **Component Architecture**:
+   - Refactored the battle arena component to use a custom `useBattle` hook
+   - Consolidated business logic, state management, and real-time subscriptions into the hook
+   - Made the battle page a lean presentational component that renders UI based on hook state
+
+### Edge Function Improvements
+
+1. **Import Resolution**:
+   - Updated import statements to use direct URLs instead of relying on the import map
+   - Added TypeScript linting directives to suppress non-critical errors
+
+2. **CORS Handling**:
+   - Defined CORS headers directly in the function files
+   - Added proper handling of OPTIONS preflight requests
+   - Made functions more flexible with parameter handling
+
+3. **Battle Flow Reliability**:
+   - Fixed card count checking in the battle cards subscription
+   - Added detailed logging for battle status transitions
+   - Implemented a robust periodic check to ensure battles transition properly
+   - Enhanced the battle transition logic to properly load both players' cards

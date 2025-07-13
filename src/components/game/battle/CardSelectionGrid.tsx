@@ -75,25 +75,47 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
   };
 
   const handleConfirmSelection = async () => {
-    if (!selectedCard) {
-      setError(`You must select exactly ${BATTLE_DECK_SIZE} card.`);
+    if (!selectedCard || isSubmitting) {
       return;
     }
-    setError(null);
     setIsSubmitting(true);
+    setError(null);
 
     try {
-      const { error: functionError } = await supabase.functions.invoke('select-cards', {
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('Submitting card selection:', {
+        battle_id: battleId,
+        selected_card_id: selectedCard,
+        user_id: user.id,
+      });
+      
+      const response = await supabase.functions.invoke('select-card-v2', {
         body: {
           battle_id: battleId,
           selected_card_id: selectedCard,
+          user_id: user.id,
         },
       });
+      
+      console.log('Edge Function response:', response);
 
-      if (functionError) {
-        throw new Error(functionError.message);
+      // Check for errors in the response
+      if (response.error) {
+        console.error('Edge Function error:', response.error);
+        throw new Error(response.error.message || 'An error occurred');
+      }
+      
+      // Check if the response data has an error property
+      if (response.data && response.data.error) {
+        console.error('Data error:', response.data.error);
+        throw new Error(response.data.error);
       }
 
+      // If we got here, the submission was successful
+      console.log('Card selection successful:', response.data);
       onSelectionConfirmed();
     } catch (err: any) {
       setError(`Failed to submit card: ${err.message}`);

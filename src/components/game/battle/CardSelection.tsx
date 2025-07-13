@@ -10,8 +10,9 @@ import { Button } from '@/components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { ScrollArea } from '@/components/ui/ScrollArea';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-const BATTLE_DECK_SIZE = 5;
+const BATTLE_DECK_SIZE = 1; // We're only selecting one card per player now
 
 interface CardSelectionProps {
   lobby: BattleInstance;
@@ -36,26 +37,36 @@ export function CardSelection({ lobby, playerCards: providedPlayerCards }: CardS
     const checkExistingSelection = async () => {
       try {
         console.log('Checking if player has already selected cards for battle:', lobby.id);
-        const { data: selections, error } = await supabase
+        const { data: selection, error } = await supabase
           .from('battle_selections')
           .select('*')
-          .eq('battle_id', lobby.id);
+          .eq('battle_id', lobby.id)
+          .single();
 
-        if (error) throw error;
-          
-        // Check if current player has already selected
-        const mySelection = selections?.find(s => s.player_id === user.id);
-        if (mySelection) {
-          console.log('Player has already selected cards:', mySelection);
-          setHasSelected(true);
+        if (error && error.code !== 'PGRST116') { // PGRST116 is 'not found' which is expected if no selections yet
+          throw error;
         }
-        
-        // Check if opponent has selected
-        const opponentId = user.id === lobby.challenger_id ? lobby.opponent_id : lobby.challenger_id;
-        const opponentSelection = selections?.find(s => s.player_id === opponentId);
-        if (opponentSelection) {
-          console.log('Opponent has selected cards');
-          setOpponentHasSelected(true);
+          
+        if (selection) {
+          // Check if current player has already selected
+          const isChallenger = user.id === lobby.challenger_id;
+          
+          if (isChallenger && selection.player1_card_id) {
+            console.log('Player 1 has already selected a card:', selection.player1_card_id);
+            setHasSelected(true);
+          } else if (!isChallenger && selection.player2_card_id) {
+            console.log('Player 2 has already selected a card:', selection.player2_card_id);
+            setHasSelected(true);
+          }
+          
+          // Check if opponent has selected
+          if (isChallenger && selection.player2_card_id) {
+            console.log('Opponent (Player 2) has selected a card');
+            setOpponentHasSelected(true);
+          } else if (!isChallenger && selection.player1_card_id) {
+            console.log('Opponent (Player 1) has selected a card');
+            setOpponentHasSelected(true);
+          }
         }
       } catch (err) {
         console.error('Error checking card selections:', err);
@@ -135,62 +146,54 @@ export function CardSelection({ lobby, playerCards: providedPlayerCards }: CardS
 
   const handleSubmitSelection = async () => {
     if (selectedCards.length !== BATTLE_DECK_SIZE) {
-      setError(`You must select exactly ${BATTLE_DECK_SIZE} cards.`);
+      setError(`You must select exactly ${BATTLE_DECK_SIZE} card.`);
       return;
     }
     setError(null);
     setIsSubmitting(true);
 
     try {
-      if (!user) throw new Error('You must be logged in to select cards');
+      if (!user) throw new Error('You must be logged in to select a card');
       
-      // First, check if the player has already selected cards for this battle
-      const { data: existingSelections, error: existingError } = await supabase
-        .from('battle_selections')
-        .select('*')
-        .eq('battle_id', lobby.id)
-        .eq('player_id', user.id);
-        
-      if (existingError) throw new Error(existingError.message);
+      // Use the new Edge Function to submit the card selection
+      const selectedCard = selectedCards[0]; // We're only selecting one card now
       
-      if (existingSelections && existingSelections.length > 0) {
-        throw new Error('You have already selected cards for this battle');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/select-card-v2`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          battle_id: lobby.id,
+          selected_card_id: selectedCard.id,
+          user_id: user.id
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit card selection');
       }
       
-      // Insert multiple card selections (one for each selected card)
-      const selections = selectedCards.map(card => ({
-        battle_id: lobby.id,
-        player_id: user.id,
-        player_card_id: card.id
-      }));
-      
-      const { data, error } = await supabase
-        .from('battle_selections')
-        .insert(selections);
-
-      if (error) throw new Error(error.message);
+      console.log('Card selection response:', result);
       
       // Update local state to show the user has made their selection
       setHasSelected(true);
       
-      // Check if both players have now selected their cards
-      if (opponentHasSelected) {
-        // Update battle status to cards_revealed when both players have selected
-        const { error: updateError } = await supabase
-          .from('battle_instances')
-          .update({ status: 'cards_revealed' })
-          .eq('id', lobby.id);
-          
-        if (updateError) {
-          console.error('Error updating battle status:', updateError);
-        }
+      // If both players have now selected their cards, the status will be updated by the Edge Function
+      if (result.status === 'cards_revealed') {
+        setOpponentHasSelected(true);
+        toast.success('Both players have selected their cards. The battle will begin!');
+      } else {
+        toast.success('Card selected successfully. Waiting for opponent...');
       }
-
-      console.log('Card selection submitted successfully.');
 
     } catch (err: any) {
       setError(err.message);
-      console.error(err);
+      console.error('Error submitting card selection:', err);
+      toast.error(err.message || 'Failed to submit card selection');
     } finally {
       setIsSubmitting(false);
     }

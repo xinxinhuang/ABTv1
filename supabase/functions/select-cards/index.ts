@@ -1,7 +1,7 @@
 // deno-lint-ignore-file
 // @ts-nocheck
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 // Define CORS headers directly in the file
 const corsHeaders = {
@@ -23,23 +23,41 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { battle_id, selected_card_id } = await req.json();
-    if (!battle_id || !selected_card_id) throw new Error('Missing battle_id or selected_card_id.');
+    // Parse request body once to get all parameters
+    const { battle_id, selected_card_id, user_id } = await req.json();
+    
+    // Validate required parameters
+    if (!battle_id || !selected_card_id) {
+      throw new Error('Missing battle_id or selected_card_id.');
+    }
     if (typeof selected_card_id !== 'string') {
       throw new Error('selected_card_id must be a string.');
     }
-
-    const authHeader = req.headers.get('Authorization')!;
-    const userClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Authentication failed.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: 'Missing user_id in request body.' }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 400 
+      });
     }
+    
+    // Verify the user exists using admin client
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(user_id);
+    if (userError || !userData.user) {
+      return new Response(JSON.stringify({ error: 'User not found.' }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 404 
+      });
+    }
+    
+    // Use the verified user data
+    const user = userData.user;
 
     const { data: battle, error: battleError } = await supabaseAdmin.from('battle_instances').select('*').eq('id', battle_id).single();
     if (battleError || !battle) throw new Error('Battle not found.');
-    if (battle.status !== 'active') throw new Error('Not in card selection phase.');
+    // Allow both 'active' and 'cards_revealed' statuses for card selection
+    if (battle.status !== 'active' && battle.status !== 'cards_revealed') {
+      throw new Error(`Not in card selection phase. Current status: ${battle.status}`);
+    }
 
     const isChallenger = battle.challenger_id === user.id;
     const isOpponent = battle.opponent_id === user.id;
@@ -53,8 +71,11 @@ serve(async (req: Request) => {
       .eq('player_id', user.id);
       
     if (selectionError) throw new Error('Failed to check existing selections.');
-    if (existingSelections && existingSelections.length > 0) {
-      throw new Error('You have already selected your cards.');
+    if (existingSelections && existingSelections.length >= BATTLE_DECK_SIZE) {
+      return new Response(JSON.stringify({ success: true, message: 'You have already selected your card(s).' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     }
 
     const { data: playerCards, error: cardsError } = await supabaseAdmin.from('player_cards').select('id').eq('player_id', user.id);

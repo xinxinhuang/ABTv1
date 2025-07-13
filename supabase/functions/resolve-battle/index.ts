@@ -81,17 +81,32 @@ serve(async (req: Request) => {
       );
     }
 
-    // 2. Get both players' card selections
-    const { data: selections, error: selectionsError } = await supabase
+    // 2. Get the battle selection record with both players' cards
+    const { data: selection, error: selectionError } = await supabase
       .from("battle_selections")
-      .select("*, player_cards(*, cards(*))")
-      .eq("battle_id", lobby_id);
+      .select(`
+        *,
+        player1:player1_card_id(
+          id,
+          player_id,
+          card_id,
+          cards:card_id(*)
+        ),
+        player2:player2_card_id(
+          id,
+          player_id,
+          card_id,
+          cards:card_id(*)
+        )
+      `)
+      .eq("battle_id", lobby_id)
+      .single();
 
-    if (selectionsError || !selections || selections.length !== 2) {
+    if (selectionError || !selection || !selection.player1 || !selection.player2) {
       return new Response(
         JSON.stringify({ 
           error: "Could not retrieve both players' selections", 
-          details: selectionsError 
+          details: selectionError || "Missing player selections" 
         }),
         {
           status: 400,
@@ -100,23 +115,19 @@ serve(async (req: Request) => {
       );
     }
 
-    // 3. Determine which selection belongs to which player
-    const player1Selection = selections.find((s: any) => s.player_id === lobby.challenger_id);
-    const player2Selection = selections.find((s: any) => s.player_id === lobby.opponent_id);
+    // 3. Extract the card details from the selection
+    const player1Card = selection.player1.cards;
+    const player2Card = selection.player2.cards;
 
-    if (!player1Selection || !player2Selection) {
+    if (!player1Card || !player2Card) {
       return new Response(
-        JSON.stringify({ error: "Missing selection for one or both players" }),
+        JSON.stringify({ error: "Missing card details from one or both players" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-
-    // Extract card data
-    const player1Card = player1Selection.player_cards.cards;
-    const player2Card = player2Selection.player_cards.cards;
 
     // 4. Determine the winner based on game rules
     let winnerId: string | null = null;

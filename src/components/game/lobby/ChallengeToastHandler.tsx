@@ -44,7 +44,7 @@ export function ChallengeToastHandler() {
     await supabase.functions.invoke('decline-challenge', {
       body: { lobby_id: battleId }, // Keep lobby_id for backend compatibility
     });
-  }, [supabase]);
+  }, [supabase, router]);
 
   useEffect(() => {
     if (!user) return;

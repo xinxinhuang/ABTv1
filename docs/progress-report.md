@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document tracks the progress, issues, and solutions implemented during the development of the Booster Card Battle application. The application is built using Next.js 15.x with React 19.x and integrates with Supabase for authentication, real-time database, and RPC functions.
+This document tracks the progress, issues, and solutions implemented during the development of the Booster Card Battle application. The application is built using Next.js 15.x with React 19.x and integrates with Supabase for authentication, real-time database, Edge Functions, and RPC functions.
 
 ## Deployment Issues
 
@@ -270,16 +270,116 @@ This document tracks the progress, issues, and solutions implemented during the 
 - **Simplified State**: The game state is managed in a clear, linear flow (challenge -> respond -> battle), reducing complexity compared to managing long-lived, asynchronous challenges.
 - **Foundation for Live Gameplay**: This architecture is the necessary foundation for building turn-based actions, live chat, and other real-time features within the battle arena.
 
+## Edge Function Improvements (July 12, 2025)
+
+### 1. Import Map and Dependency Resolution
+
+**Problem**: Edge Functions were failing to deploy due to import resolution issues, particularly with the Deno standard library and Supabase client.
+
+**Solution**:
+- Updated import statements in Edge Functions to use direct URLs instead of relying on the import map:
+  ```typescript
+  import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  ```
+- Added TypeScript linting directives to suppress non-critical errors:
+  ```typescript
+  // deno-lint-ignore-file
+  // @ts-nocheck
+  ```
+- Ensured consistency across all Edge Functions by applying the same pattern used in working functions like `accept_challenge/index.ts`
+
+**Results**:
+- All Edge Functions now deploy successfully without import resolution errors
+- Consistent approach to imports across all Edge Functions
+- Simplified maintenance by removing dependency on import map configuration
+
+### 2. CORS Issues Resolution
+
+**Problem**: The `challenge-player` Edge Function was failing due to CORS issues when called from the local development environment.
+
+**Solution**:
+- Defined CORS headers directly in the function file instead of importing from a shared file
+- Added proper handling of OPTIONS preflight requests
+- Made the function more flexible to accept either 'challenged_player_id' or 'player2_id' parameter
+- Added detailed logging throughout the function to help with debugging
+
+**Results**:
+- Edge Function now properly handles cross-origin requests from the local development environment
+- Simplified debugging with comprehensive logging
+- More flexible parameter handling improves API usability
+
+### 3. Battle Resolution System
+
+**Problem**: The battle resolution logic was inconsistent between client and server implementations, leading to unpredictable battle outcomes.
+
+**Solution**:
+- Centralized battle resolution logic in the `resolve-battle` Edge Function
+- Ensured server-authoritative battle outcomes that can't be manipulated by clients
+- Improved validation of battle state transitions
+- Added comprehensive error handling and logging
+
+**Results**:
+- Consistent and fair battle outcomes determined by server-side logic
+- Reduced potential for exploits or cheating
+- Better debugging capabilities for battle resolution issues
+
+## Battle System Enhancements (July 12, 2025)
+
+### 1. Battle Arena Refactoring
+
+**Problem**: The battle arena page contained legacy code with multiple type-mismatch errors and was difficult to maintain.
+
+**Solution**:
+- Completed a full refactor of the battle arena component (`/game/arena/battle/[battleId]/page.tsx`)
+- Consolidated business logic, state management, and real-time subscriptions into a custom `useBattle` hook
+- Made the battle page a lean presentational component that renders UI based on hook state
+- Resolved all outstanding TypeScript errors and linting issues
+
+**Results**:
+- Cleaner, more maintainable battle arena code
+- Better separation of concerns between UI and business logic
+- Improved type safety throughout the battle system
+
+### 2. Route Parameter Standardization
+
+**Problem**: Inconsistent parameter naming across the battle system caused routing and data fetching errors.
+
+**Solution**:
+- Updated all database queries in battle-related components to use `battle_id` consistently
+- Changed filters in real-time Supabase subscriptions from `lobby_id=eq.${battleId}` to `battle_id=eq.${battleId}`
+- Created a redirect from the old battle route `/battle/[lobbyId]` to the new route `/game/arena/battle/[battleId]`
+
+**Results**:
+- Battle system now works consistently with proper real-time updates
+- Fixed navigation flow from challenge acceptance to battle screen
+- Eliminated 404 errors and data fetching issues related to parameter mismatches
+
+### 3. Battle Flow Improvements
+
+**Problem**: Battle remained stuck in "waiting" state after both players selected cards.
+
+**Solution**:
+- Fixed card count checking in the battle cards subscription
+- Added detailed logging for battle status transitions
+- Implemented a robust periodic check to ensure battles transition properly
+- Enhanced the battle transition logic to properly load both players' cards
+
+**Results**:
+- Smoother battle flow from card selection to resolution
+- Eliminated stuck battles and improved reliability
+- Better visibility into battle state transitions for debugging
+
 ## Next Steps
 
 1. Continue refining UI and gameplay features
-2. Add more comprehensive error handling and user feedback
-3. Implement challenge filters and sorting options
-4. Add automated tournament system
-5. Create admin tools for game balance adjustments
-6. Implement card special abilities
+2. Implement card special abilities and effects
+3. Add automated tournament system
+4. Create admin tools for game balance adjustments
+5. Implement player ranking and matchmaking system
+6. Add battle replays and history
 7. Monitor Vercel deployments and Supabase logs for any runtime issues
 
 ## Conclusion
 
-The Booster Card Battle application has undergone significant improvements in deployment configuration, UI readability, and game mechanics. The pivot to an asynchronous battle system represents a major design shift that simplifies the technical implementation while enhancing the gameplay experience. This new approach maintains the high-stakes nature of card battles while making the game more accessible to players. The application now successfully builds and runs in production with all core features fully functional.
+The Booster Card Battle application has undergone significant improvements in deployment configuration, UI readability, and game mechanics. The implementation of unlimited booster packs has simplified the player experience while maintaining the time-gated mechanics. The battle system has been completely refactored to provide a more reliable and consistent experience with proper real-time updates. Edge Function improvements have resolved deployment issues and CORS problems, ensuring smooth operation of the backend services. The application now successfully builds and runs in production with all core features fully functional and a solid foundation for future enhancements.

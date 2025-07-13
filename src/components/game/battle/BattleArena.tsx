@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client';
 import { CardSelection } from './CardSelection';
 import { BattleGrid } from './BattleGrid';
 import { BattleResults } from './BattleResults';
-import { BattleInstance, BattleSelection } from '../../../types/battle';
+import { BattleInstance } from '../../../types/battle';
+import { useUser } from '../../../hooks/useUser';
 
 interface BattleArenaProps {
   initialLobby: BattleInstance;
@@ -13,7 +14,10 @@ interface BattleArenaProps {
 
 const BattleArena = ({ initialLobby }: BattleArenaProps) => {
   const [battle, setBattle] = useState<BattleInstance | null>(initialLobby);
-  const [selections, setSelections] = useState<BattleSelection[]>([]);
+  const [selection, setSelection] = useState<any>(null);
+  const [player1Card, setPlayer1Card] = useState<any>(null);
+  const [player2Card, setPlayer2Card] = useState<any>(null);
+  const { user } = useUser();
   const supabase = createClient();
 
   useEffect(() => {
@@ -43,44 +47,46 @@ const BattleArena = ({ initialLobby }: BattleArenaProps) => {
           { event: '*', schema: 'public', table: 'battle_selections', filter: `battle_id=eq.${battle.id}` },
           async (payload) => {
             console.log('Battle selection updated:', payload);
-            // Fetch all current selections
-            const { data, error } = await supabase
-              .from('battle_selections')
-              .select('*')
-              .eq('battle_id', battle.id);
-              
-            if (!error && data) {
-              setSelections(data as BattleSelection[]);
-              
-              // If we now have selections from both players, update battle status
-              if (data.length === 2 && battle.status === 'active') {
-                // Both players have selected, update status to cards_revealed
-                const { error } = await supabase
-                  .from('battle_instances')
-                  .update({ status: 'cards_revealed' })
-                  .eq('id', battle.id);
-                  
-                if (error) {
-                  console.error('Error updating battle status:', error);
-                }
-              }
-            }
+            // Fetch current selection with card details
+            await fetchSelectionWithCards();
       })
       .subscribe();
 
-    // Initial fetch of selections
-    const fetchSelections = async () => {
+    // Initial fetch of selection with card details
+    const fetchSelectionWithCards = async () => {
       const { data, error } = await supabase
         .from('battle_selections')
-        .select('*')
-        .eq('battle_id', battle.id);
+        .select(`
+          *,
+          player1:player1_card_id(id, player_id, card_id, cards:card_id(*)),
+          player2:player2_card_id(id, player_id, card_id, cards:card_id(*))
+        `)
+        .eq('battle_id', battle.id)
+        .single();
         
-      if (!error && data) {
-        setSelections(data as BattleSelection[]);
+      if (error) {
+        if (error.code !== 'PGRST116') { // Not found is expected if no selections yet
+          console.error('Error fetching battle selection:', error);
+        }
+        return;
+      }
+      
+      if (data) {
+        console.log('Fetched battle selection with cards:', data);
+        setSelection(data);
+        
+        // Extract card details
+        if (data.player1?.cards) {
+          setPlayer1Card(data.player1.cards);
+        }
+        
+        if (data.player2?.cards) {
+          setPlayer2Card(data.player2.cards);
+        }
       }
     };
     
-    fetchSelections();
+    fetchSelectionWithCards();
 
     return () => {
       supabase.removeChannel(battleChannel);
@@ -92,28 +98,72 @@ const BattleArena = ({ initialLobby }: BattleArenaProps) => {
     return <div className="text-center p-8">Loading battle...</div>;
   }
 
+  const handleResolveBattle = async (battleId: string) => {
+    if (!battleId) return;
+    
+    try {
+      // Call the resolve-battle Edge Function
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/resolve-battle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          battle_id: battleId
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to resolve battle');
+      }
+      
+      console.log('Battle resolved:', result);
+      
+    } catch (error: any) {
+      console.error('Error resolving battle:', error);
+    }
+  };
+
   const renderBattleState = () => {
     switch (battle.status) {
       case 'selecting':
       case 'active':
+        // Check if current user has already selected a card
+        const isChallenger = user?.id === battle.challenger_id;
+        const hasSelected = isChallenger ? 
+          (selection?.player1_card_id ? true : false) : 
+          (selection?.player2_card_id ? true : false);
+        
         return <CardSelection lobby={battle} />;
       case 'cards_revealed':
         return (
-          <div className="text-center p-8">
-            <h2 className="text-xl font-bold mb-4">Cards Revealed!</h2>
-            <p>Both players have selected their cards. The battle will be resolved soon.</p>
-            <button 
-              className="mt-4 px-4 py-2 bg-blue-600 rounded-lg"
-              onClick={() => handleResolveBattle()}
-            >
-              Resolve Battle
-            </button>
+          <div className="flex flex-col items-center space-y-6">
+            <h2 className="text-2xl font-bold">Cards Revealed!</h2>
+            <BattleGrid 
+              battle={battle} 
+              player1Card={player1Card}
+              player2Card={player2Card}
+              onResolveBattle={() => battle?.id && handleResolveBattle(battle.id)} 
+            />
           </div>
         );
       case 'in_progress':
-        return <BattleGrid battle={battle} selections={selections} />;
+        return (
+          <div className="flex flex-col items-center space-y-6">
+            <h2 className="text-2xl font-bold">Battle in Progress</h2>
+            <BattleGrid 
+              battle={battle} 
+              player1Card={player1Card}
+              player2Card={player2Card}
+              onResolveBattle={() => battle?.id && handleResolveBattle(battle.id)} 
+            />
+          </div>
+        );
       case 'completed':
-        return <BattleResults battle={battle} selections={selections} onClose={() => setBattle(null)} />;
+        return <BattleResults battle={battle} selections={[selection]} onClose={() => setBattle(null)} />;
       case 'pending':
       case 'awaiting_opponent':
         return <div className="text-center p-8">Waiting for opponent to accept the challenge...</div>;
@@ -125,20 +175,7 @@ const BattleArena = ({ initialLobby }: BattleArenaProps) => {
     }
   };
   
-  const handleResolveBattle = async () => {
-    if (!battle?.id) return;
-    
-    try {
-      const { error } = await supabase.functions.invoke('resolve-battle', {
-        body: { battle_id: battle.id }
-      });
-      
-      if (error) throw error;
-      console.log('Battle resolved successfully!');
-    } catch (error) {
-      console.error('Error resolving battle:', error);
-    }
-  };
+
 
   return (
     <div className="w-full h-full bg-gray-800 text-white p-4">

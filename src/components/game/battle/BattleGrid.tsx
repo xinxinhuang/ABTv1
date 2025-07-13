@@ -11,10 +11,12 @@ import { Loader2 } from 'lucide-react';
 
 interface BattleGridProps {
   battle: BattleInstance;
-  selections: BattleSelection[];
+  player1Card: any;
+  player2Card: any;
+  onResolveBattle: () => void;
 }
 
-export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
+export const BattleGrid = ({ battle, player1Card, player2Card, onResolveBattle }: BattleGridProps) => {
   const { user } = useUser();
   const supabase = createClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,9 +24,9 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
   const [attackerCardId, setAttackerCardId] = useState<string | null>(null);
   const [defenderCardId, setDefenderCardId] = useState<string | null>(null);
   
-  const [myCards, setMyCards] = useState<Card[]>([]);
-  const [opponentCards, setOpponentCards] = useState<Card[]>([]);
-  const [loadingCards, setLoadingCards] = useState(true);
+  const [myCard, setMyCard] = useState<any>(null);
+  const [opponentCard, setOpponentCard] = useState<any>(null);
+  const [loadingCards, setLoadingCards] = useState(false);
 
   // Determine player roles
   const isChallenger = user?.id === battle.challenger_id;
@@ -32,110 +34,51 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
   const opponentId = isChallenger ? (battle.opponent_id || '') : battle.challenger_id;
   const isMyTurn = battle.status === 'in_progress' && ((isChallenger && battle.turn === 'challenger') || (!isChallenger && battle.turn === 'opponent'));
 
-  // No need to fetch battle state since we're getting selections directly from props
-
   useEffect(() => {
-    const fetchCardData = async () => {
-      setLoadingCards(true);
+    const processCardData = () => {
+      console.log('Processing card data:', { player1Card, player2Card });
       
-      console.log('DEBUG BattleGrid: selections:', selections);
-      console.log('DEBUG BattleGrid: myId:', myId);
-      console.log('DEBUG BattleGrid: opponentId:', opponentId);
-      
-      if (!selections || selections.length === 0) {
-        console.log('DEBUG BattleGrid: No selections found');
-        setLoadingCards(false);
+      if (!player1Card || !player2Card) {
+        console.log('Missing card data');
         return;
       }
 
       try {
-        // Get my selections and opponent selections
-        const mySelections = selections.filter(s => s.player_id === myId);
-        const opponentSelections = selections.filter(s => s.player_id === opponentId);
-        
-        console.log('DEBUG BattleGrid: mySelections:', mySelections);
-        console.log('DEBUG BattleGrid: opponentSelections:', opponentSelections);
-        
-        if (mySelections.length === 0 || opponentSelections.length === 0) {
-          // No error here - one or both players may not have selected cards yet
-          setLoadingCards(false);
-          return;
+        // Determine which card belongs to the current user and which to the opponent
+        if (isChallenger) {
+          // Current user is challenger (player1)
+          setMyCard(player1Card);
+          setOpponentCard(player2Card);
+          setAttackerCardId(player1Card.id);
+          setDefenderCardId(player2Card.id);
+        } else {
+          // Current user is opponent (player2)
+          setMyCard(player2Card);
+          setOpponentCard(player1Card);
+          setAttackerCardId(player1Card.id); // Challenger always attacks first
+          setDefenderCardId(player2Card.id);
         }
-        
-        // Fetch card details for all selected cards
-        // Get all card IDs
-        const myCardIds = mySelections.map(s => s.player_card_id);
-        const opponentCardIds = opponentSelections.map(s => s.player_card_id);
-        
-        // Fetch my cards
-        const { data: myCardsData, error: myError } = await supabase
-          .from('player_cards')
-          .select('*, cards(*)')
-          .in('id', myCardIds);
-          
-        if (myError) throw myError;
-        
-        // Fetch opponent cards
-        const { data: opponentCardsData, error: opponentError } = await supabase
-          .from('player_cards')
-          .select('*, cards(*)')
-          .in('id', opponentCardIds);
-          
-        if (opponentError) throw opponentError;
-
-        // Format cards for display
-        const myFormattedCards: Card[] = myCardsData.map(cardData => ({
-          id: cardData.id,
-          player_id: myId || '',
-          card_name: cardData.cards.name,
-          card_type: cardData.cards.type,
-          rarity: cardData.cards.rarity,
-          attributes: cardData.cards.attributes || {},
-          obtained_at: cardData.obtained_at
-        }));
-
-        const opponentFormattedCards: Card[] = opponentCardsData.map(cardData => ({
-          id: cardData.id,
-          player_id: opponentId || '',
-          card_name: cardData.cards.name,
-          card_type: cardData.cards.type,
-          rarity: cardData.cards.rarity,
-          attributes: cardData.cards.attributes || {},
-          obtained_at: cardData.obtained_at
-        }));
-
-        setMyCards(myFormattedCards);
-        setOpponentCards(opponentFormattedCards);
       } catch (err) {
-        console.error('Failed to fetch card data:', err);
-        setError('Could not load card details.');
-      } finally {
-        setLoadingCards(false);
+        console.error('Error processing card data:', err);
+        setError('Failed to process card data');
       }
     };
+    
+    processCardData();
+  }, [player1Card, player2Card, isChallenger]);
 
-    fetchCardData();
-  }, [selections, myId, opponentId, supabase]);
-
-  // Function to update battle status in the database
-  const updateBattleStatus = async (status: string, winner?: string) => {
+  const handleResolveBattleClick = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    
     try {
-      const updateData: { status: string; winner_id?: string } = { status };
-      if (winner) {
-        updateData.winner_id = winner;
-      }
-      
-      const { error } = await supabase
-        .from('battle_instances')
-        .update(updateData)
-        .eq('id', battle.id);
-        
-      if (error) {
-        throw new Error(`Failed to update battle status: ${error.message}`);
-      }
-    } catch (err) {
-      console.error('Error updating battle status:', err);
-      setError('Failed to update battle status');
+      // Call the parent's onResolveBattle handler
+      await onResolveBattle();
+    } catch (err: any) {
+      console.error('Error resolving battle:', err);
+      setError(err.message || 'Failed to resolve battle');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -148,8 +91,8 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
     setIsSubmitting(true);
 
     try {
-      const attackerCard = myCards.find(c => c.id === attackerCardId);
-      const defenderCard = opponentCards.find(c => c.id === defenderCardId);
+      const attackerCard = myCard;
+      const defenderCard = opponentCard;
       
       if (!attackerCard || !defenderCard) {
         setError('Selected cards not found');
@@ -167,7 +110,7 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
       const opponentCardPower = defenderDefense * 10;
       
       // Add game log
-      console.log(`${attackerCard.card_name} (Power: ${myCardPower}) vs ${defenderCard.card_name} (Power: ${opponentCardPower})`);
+      console.log(`${attackerCard.name} (Power: ${myCardPower}) vs ${defenderCard.name} (Power: ${opponentCardPower})`);
       
       // Determine winner and update battle status
       if (myCardPower > opponentCardPower) {
@@ -194,7 +137,11 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
   };
 
   if (loadingCards) {
-    return <div className="text-center p-8"><Loader2 className="mx-auto h-8 w-8 animate-spin" /> Loading battle...</div>;
+    return <div className="text-center p-8"><Loader2 className="mx-auto h-8 w-8 animate-spin" /> Loading cards...</div>;
+  }
+  
+  if (!myCard || !opponentCard) {
+    return <div className="text-center p-8">Waiting for both players to select their cards...</div>;
   }
 
   const renderGameStatus = () => {
@@ -208,31 +155,71 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
     </div>;
   }
 
+  const updateBattleStatus = async (status: string, winner?: string) => {
+    try {
+      const updateData: { status: string; winner_id?: string } = { status };
+      if (winner) {
+        updateData.winner_id = winner;
+      }
+      
+      const { error } = await supabase
+        .from('battle_instances')
+        .update(updateData)
+        .eq('id', battle.id);
+        
+      if (error) {
+        throw new Error(`Failed to update battle status: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Error updating battle status:', err);
+      setError('Failed to update battle status');
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col space-y-4">
       {error && <p className="text-red-500 text-center">{error}</p>}
       
       {/* Opponent's Side */}
       <div className="flex-1 bg-gray-900 p-4 rounded-lg">
-        <h3 className="text-lg font-bold text-red-400">Opponent</h3>
-        <div className="flex justify-center items-center space-x-2 mt-2 h-full">
-          {opponentCards.map(card => (
-            <div key={card.id} onClick={() => isMyTurn && setDefenderCardId(card.id)} className={`p-1 rounded-lg ${defenderCardId === card.id ? 'ring-2 ring-yellow-400' : ''} ${isMyTurn ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-              <CardDisplay card={card} isRevealed={true} />
+        <div className="grid grid-cols-2 gap-8 w-full max-w-4xl">
+          {/* Player's card */}
+          <div className="flex flex-col items-center">
+            <h3 className="text-lg font-semibold mb-2">Your Card</h3>
+            <div className="w-full">
+              <CardDisplay 
+                card={{
+                  id: myCard.id,
+                  player_id: myId,
+                  card_name: myCard.name,
+                  card_type: myCard.type,
+                  rarity: myCard.rarity,
+                  attributes: myCard.attributes || {},
+                  obtained_at: new Date().toISOString()
+                }} 
+                isSelected={true}
+              />
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Player's Side */}
-      <div className="flex-1 bg-gray-900 p-4 rounded-lg">
-        <h3 className="text-lg font-bold text-blue-400">You</h3>
-        <div className="flex justify-center items-center space-x-2 mt-2 h-full">
-          {myCards.map(card => (
-            <div key={card.id} onClick={() => isMyTurn && setAttackerCardId(card.id)} className={`p-1 rounded-lg ${attackerCardId === card.id ? 'ring-2 ring-green-400' : ''} ${isMyTurn ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-              <CardDisplay card={card} isRevealed={true} />
+          </div>
+          
+          {/* Opponent's card */}
+          <div className="flex flex-col items-center">
+            <h3 className="text-lg font-semibold mb-2">Opponent's Card</h3>
+            <div className="w-full">
+              <CardDisplay 
+                card={{
+                  id: opponentCard.id,
+                  player_id: opponentId,
+                  card_name: opponentCard.name,
+                  card_type: opponentCard.type,
+                  rarity: opponentCard.rarity,
+                  attributes: opponentCard.attributes || {},
+                  obtained_at: new Date().toISOString()
+                }} 
+                isSelected={true}
+              />
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
@@ -244,6 +231,13 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
         <Button onClick={handlePlayTurn} disabled={!isMyTurn || isSubmitting || !attackerCardId || !defenderCardId}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Attack!
+        </Button>
+        <Button 
+          onClick={handleResolveBattleClick} 
+          disabled={isSubmitting} 
+          className="mt-6 px-6 py-3 text-lg"
+        >
+          Resolve Battle
         </Button>
       </div>
 
