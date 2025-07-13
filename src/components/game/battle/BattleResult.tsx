@@ -40,7 +40,7 @@ export const BattleResult = ({
         const { data: selections, error } = await supabase
           .from('battle_selections')
           .select('*, player_cards(*, cards(*))')
-          .eq('lobby_id', battleId); // Using battle ID to query selections
+          .eq('battle_id', battleId); // Using battle_id to match renamed column
 
         if (error) throw error;
 

@@ -98,7 +98,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ cards, onSelectCard }) =
   
   return (
     <div className="bg-gray-900 p-2 rounded-lg">
-      <h3 className="text-lg font-bold text-white mb-2">Your Selected Card</h3>
+      <h3 className="text-lg font-bold text-white mb-2">Your Selected Cards</h3>
       <div className="flex flex-wrap justify-center">
         {cards && cards.length > 0 ? (
           cards.map((cardId) => (

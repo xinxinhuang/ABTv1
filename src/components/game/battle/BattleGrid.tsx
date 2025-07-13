@@ -38,62 +38,74 @@ export const BattleGrid = ({ battle, selections }: BattleGridProps) => {
     const fetchCardData = async () => {
       setLoadingCards(true);
       
+      console.log('DEBUG BattleGrid: selections:', selections);
+      console.log('DEBUG BattleGrid: myId:', myId);
+      console.log('DEBUG BattleGrid: opponentId:', opponentId);
+      
       if (!selections || selections.length === 0) {
+        console.log('DEBUG BattleGrid: No selections found');
         setLoadingCards(false);
         return;
       }
 
       try {
-        // Get my selection and opponent selection
-        const mySelection = selections.find(s => s.player_id === myId);
-        const opponentSelection = selections.find(s => s.player_id === opponentId);
+        // Get my selections and opponent selections
+        const mySelections = selections.filter(s => s.player_id === myId);
+        const opponentSelections = selections.filter(s => s.player_id === opponentId);
         
-        if (!mySelection || !opponentSelection) {
-          setError('Could not find both player selections');
+        console.log('DEBUG BattleGrid: mySelections:', mySelections);
+        console.log('DEBUG BattleGrid: opponentSelections:', opponentSelections);
+        
+        if (mySelections.length === 0 || opponentSelections.length === 0) {
+          // No error here - one or both players may not have selected cards yet
           setLoadingCards(false);
           return;
         }
         
-        // Fetch card details for both selections
-        const { data: myCardData, error: myError } = await supabase
+        // Fetch card details for all selected cards
+        // Get all card IDs
+        const myCardIds = mySelections.map(s => s.player_card_id);
+        const opponentCardIds = opponentSelections.map(s => s.player_card_id);
+        
+        // Fetch my cards
+        const { data: myCardsData, error: myError } = await supabase
           .from('player_cards')
           .select('*, cards(*)')
-          .eq('id', mySelection.player_card_id)
-          .single();
+          .in('id', myCardIds);
           
         if (myError) throw myError;
         
-        const { data: opponentCardData, error: opponentError } = await supabase
+        // Fetch opponent cards
+        const { data: opponentCardsData, error: opponentError } = await supabase
           .from('player_cards')
           .select('*, cards(*)')
-          .eq('id', opponentSelection.player_card_id)
-          .single();
+          .in('id', opponentCardIds);
           
         if (opponentError) throw opponentError;
 
         // Format cards for display
-        const myFormattedCard: Card = {
-          id: myCardData.id,
+        const myFormattedCards: Card[] = myCardsData.map(cardData => ({
+          id: cardData.id,
           player_id: myId || '',
-          card_name: myCardData.cards.name,
-          card_type: myCardData.cards.type,
-          rarity: myCardData.cards.rarity,
-          attributes: myCardData.cards.attributes || {},
-          obtained_at: myCardData.obtained_at
-        };
+          card_name: cardData.cards.name,
+          card_type: cardData.cards.type,
+          rarity: cardData.cards.rarity,
+          attributes: cardData.cards.attributes || {},
+          obtained_at: cardData.obtained_at
+        }));
 
-        const opponentFormattedCard: Card = {
-          id: opponentCardData.id,
+        const opponentFormattedCards: Card[] = opponentCardsData.map(cardData => ({
+          id: cardData.id,
           player_id: opponentId || '',
-          card_name: opponentCardData.cards.name,
-          card_type: opponentCardData.cards.type,
-          rarity: opponentCardData.cards.rarity,
-          attributes: opponentCardData.cards.attributes || {},
-          obtained_at: opponentCardData.obtained_at
-        };
+          card_name: cardData.cards.name,
+          card_type: cardData.cards.type,
+          rarity: cardData.cards.rarity,
+          attributes: cardData.cards.attributes || {},
+          obtained_at: cardData.obtained_at
+        }));
 
-        setMyCards([myFormattedCard]);
-        setOpponentCards([opponentFormattedCard]);
+        setMyCards(myFormattedCards);
+        setOpponentCards(opponentFormattedCards);
       } catch (err) {
         console.error('Failed to fetch card data:', err);
         setError('Could not load card details.');

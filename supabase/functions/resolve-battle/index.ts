@@ -36,7 +36,7 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { lobby_id } = await req.json();
+    const { battle_id: lobby_id } = await req.json();
 
     if (!lobby_id) {
       return new Response(
@@ -85,7 +85,7 @@ serve(async (req: Request) => {
     const { data: selections, error: selectionsError } = await supabase
       .from("battle_selections")
       .select("*, player_cards(*, cards(*))")
-      .eq("lobby_id", lobby_id);
+      .eq("battle_id", lobby_id);
 
     if (selectionsError || !selections || selections.length !== 2) {
       return new Response(

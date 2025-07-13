@@ -40,14 +40,14 @@ const BattleArena = ({ initialLobby }: BattleArenaProps) => {
     const selectionsChannel = supabase
       .channel(`battle_selections:${battle.id}`)
       .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'battle_selections', filter: `lobby_id=eq.${battle.id}` },
+          { event: '*', schema: 'public', table: 'battle_selections', filter: `battle_id=eq.${battle.id}` },
           async (payload) => {
             console.log('Battle selection updated:', payload);
             // Fetch all current selections
             const { data, error } = await supabase
               .from('battle_selections')
               .select('*')
-              .eq('lobby_id', battle.id);
+              .eq('battle_id', battle.id);
               
             if (!error && data) {
               setSelections(data as BattleSelection[]);
@@ -73,7 +73,7 @@ const BattleArena = ({ initialLobby }: BattleArenaProps) => {
       const { data, error } = await supabase
         .from('battle_selections')
         .select('*')
-        .eq('lobby_id', battle.id);
+        .eq('battle_id', battle.id);
         
       if (!error && data) {
         setSelections(data as BattleSelection[]);
@@ -130,7 +130,7 @@ const BattleArena = ({ initialLobby }: BattleArenaProps) => {
     
     try {
       const { error } = await supabase.functions.invoke('resolve-battle', {
-        body: { lobby_id: battle.id }
+        body: { battle_id: battle.id }
       });
       
       if (error) throw error;

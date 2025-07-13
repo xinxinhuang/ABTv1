@@ -39,7 +39,7 @@ export function CardSelection({ lobby, playerCards: providedPlayerCards }: CardS
         const { data: selections, error } = await supabase
           .from('battle_selections')
           .select('*')
-          .eq('lobby_id', lobby.id);
+          .eq('battle_id', lobby.id);
 
         if (error) throw error;
           
@@ -148,7 +148,7 @@ export function CardSelection({ lobby, playerCards: providedPlayerCards }: CardS
       const { data: existingSelections, error: existingError } = await supabase
         .from('battle_selections')
         .select('*')
-        .eq('lobby_id', lobby.id)
+        .eq('battle_id', lobby.id)
         .eq('player_id', user.id);
         
       if (existingError) throw new Error(existingError.message);
@@ -159,7 +159,7 @@ export function CardSelection({ lobby, playerCards: providedPlayerCards }: CardS
       
       // Insert multiple card selections (one for each selected card)
       const selections = selectedCards.map(card => ({
-        lobby_id: lobby.id,
+        battle_id: lobby.id,
         player_id: user.id,
         player_card_id: card.id
       }));

@@ -37,7 +37,7 @@ export interface BattleInstance {
  */
 export interface BattleSelection {
   id: string;
-  lobby_id: string;
+  battle_id: string;
   player_id: string;
   player_card_id: string;
   created_at: string;
