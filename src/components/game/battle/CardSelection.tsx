@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '../../../hooks/useUser';
-import { Card } from '@/types/game';
-import { BattleLobby } from '@/types/battle';
+import { Card, CardAttributes } from '@/types/game';
+import { BattleInstance, BattleSelection, BattleCard } from '@/types/battle';
 import { CardDisplay } from '../CardDisplay';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -14,10 +14,11 @@ import { Loader2 } from 'lucide-react';
 const BATTLE_DECK_SIZE = 5;
 
 interface CardSelectionProps {
-  lobby: BattleLobby;
+  lobby: BattleInstance;
+  playerCards?: BattleCard[];
 }
 
-export function CardSelection({ lobby }: CardSelectionProps) {
+export function CardSelection({ lobby, playerCards: providedPlayerCards }: CardSelectionProps) {
   const { user } = useUser();
   const supabase = createClient();
   const [cards, setCards] = useState<Card[]>([]);
@@ -25,8 +26,76 @@ export function CardSelection({ lobby }: CardSelectionProps) {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSelected, setHasSelected] = useState(false);
+  const [opponentHasSelected, setOpponentHasSelected] = useState(false);
+
+  // Check if current player has already made a card selection for this battle
+  useEffect(() => {
+    if (!user || !lobby.id) return;
+    
+    const checkExistingSelection = async () => {
+      try {
+        console.log('Checking if player has already selected cards for battle:', lobby.id);
+        const { data: selections, error } = await supabase
+          .from('battle_selections')
+          .select('*')
+          .eq('lobby_id', lobby.id);
+
+        if (error) throw error;
+          
+        // Check if current player has already selected
+        const mySelection = selections?.find(s => s.player_id === user.id);
+        if (mySelection) {
+          console.log('Player has already selected cards:', mySelection);
+          setHasSelected(true);
+        }
+        
+        // Check if opponent has selected
+        const opponentId = user.id === lobby.challenger_id ? lobby.opponent_id : lobby.challenger_id;
+        const opponentSelection = selections?.find(s => s.player_id === opponentId);
+        if (opponentSelection) {
+          console.log('Opponent has selected cards');
+          setOpponentHasSelected(true);
+        }
+      } catch (err) {
+        console.error('Error checking card selections:', err);
+      }
+    };
+    
+    checkExistingSelection();
+  }, [lobby.id, user, supabase, lobby.challenger_id, lobby.opponent_id]);
 
   useEffect(() => {
+    // If playerCards are provided from the parent, use them instead of fetching
+    if (providedPlayerCards && providedPlayerCards.length > 0) {
+      console.log('Using provided player cards:', providedPlayerCards);
+      // Convert BattleCard to Card format if needed
+      const formattedCards = providedPlayerCards.map(battleCard => {
+        // Convert rarity to expected format (bronze, silver, gold)
+        let normalizedRarity: "bronze" | "silver" | "gold" = "bronze";
+        if (battleCard.rarity.toLowerCase().includes("silver")) {
+          normalizedRarity = "silver";
+        } else if (battleCard.rarity.toLowerCase().includes("gold")) {
+          normalizedRarity = "gold";
+        }
+        
+        const card: Card = {
+          id: battleCard.id,
+          player_id: user?.id || '',  // Use current user's ID
+          card_name: battleCard.name,
+          card_type: battleCard.type as 'humanoid' | 'weapon',
+          rarity: normalizedRarity,
+          attributes: battleCard.attributes as CardAttributes || {},
+          obtained_at: new Date().toISOString() // Use current date as fallback
+        };
+        return card;
+      });
+      setCards(formattedCards);
+      setLoading(false);
+      return;
+    }
+    
+    // Otherwise fetch cards as before
     const fetchUserCards = async () => {
       if (!user) return;
       setLoading(true);
@@ -40,16 +109,17 @@ export function CardSelection({ lobby }: CardSelectionProps) {
         
         const fetchedCards = data.map(item => item.cards) as Card[];
         setCards(fetchedCards);
+        console.log('Fetched player cards from database:', fetchedCards);
       } catch (err: any) {
         setError('Failed to fetch your cards. Please try again.');
-        console.error(err);
+        console.error('Error fetching cards:', err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserCards();
-  }, [user, supabase]);
+  }, [user, supabase, providedPlayerCards]);
 
   const handleCardSelect = (card: Card) => {
     setSelectedCards(prev => {
@@ -72,15 +142,49 @@ export function CardSelection({ lobby }: CardSelectionProps) {
     setIsSubmitting(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('select-cards', {
-        body: {
-          lobby_id: lobby.id,
-          selected_cards: selectedCards.map(c => c.id),
-        },
-      });
+      if (!user) throw new Error('You must be logged in to select cards');
+      
+      // First, check if the player has already selected cards for this battle
+      const { data: existingSelections, error: existingError } = await supabase
+        .from('battle_selections')
+        .select('*')
+        .eq('lobby_id', lobby.id)
+        .eq('player_id', user.id);
+        
+      if (existingError) throw new Error(existingError.message);
+      
+      if (existingSelections && existingSelections.length > 0) {
+        throw new Error('You have already selected cards for this battle');
+      }
+      
+      // Insert multiple card selections (one for each selected card)
+      const selections = selectedCards.map(card => ({
+        lobby_id: lobby.id,
+        player_id: user.id,
+        player_card_id: card.id
+      }));
+      
+      const { data, error } = await supabase
+        .from('battle_selections')
+        .insert(selections);
 
       if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
+      
+      // Update local state to show the user has made their selection
+      setHasSelected(true);
+      
+      // Check if both players have now selected their cards
+      if (opponentHasSelected) {
+        // Update battle status to cards_revealed when both players have selected
+        const { error: updateError } = await supabase
+          .from('battle_instances')
+          .update({ status: 'cards_revealed' })
+          .eq('id', lobby.id);
+          
+        if (updateError) {
+          console.error('Error updating battle status:', updateError);
+        }
+      }
 
       console.log('Card selection submitted successfully.');
 
@@ -100,11 +204,10 @@ export function CardSelection({ lobby }: CardSelectionProps) {
      return <div className="text-center p-8 text-red-500">{error}</div>;
   }
 
-  const isPlayer1 = user?.id === lobby.player1_id;
-  const playerReady = isPlayer1 ? lobby.battle_state?.player1_ready : lobby.battle_state?.player2_ready;
+  const isChallenger = user?.id === lobby.challenger_id;
 
-  if (playerReady) {
-    return <div className="text-center p-8">Waiting for the other player to select their cards...</div>;
+  if (hasSelected) {
+    return <div className="text-center p-8">You've selected your cards. Waiting for the other player to select their cards...</div>;
   }
 
   return (

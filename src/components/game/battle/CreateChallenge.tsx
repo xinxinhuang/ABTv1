@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CardSelector } from './CardSelector';
+import { CardSelector, BattleCard } from './CardSelector';
 import { supabase } from '@/lib/supabase/client';
 import { Card } from '@/types/game';
 import { Button } from '@/components/ui/Button';
@@ -12,8 +12,8 @@ export default function CreateChallenge() {
   
   const { toast } = useToast();
   const [isSelecting, setIsSelecting] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const [playerCards, setPlayerCards] = useState<Card[]>([]);
+  const [selectedCard, setSelectedCard] = useState<BattleCard | null>(null);
+  const [playerCards, setPlayerCards] = useState<BattleCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,17 +27,27 @@ export default function CreateChallenge() {
       }
 
       try {
-        // Simply fetch all player_cards for this player
-        // Since the player_cards table already contains all the card information
+        // Fetch player cards with their associated card details
         const { data: cardsData, error } = await supabase
           .from('player_cards')
-          .select('*')
+          .select('*, cards(*)')
           .eq('player_id', user.id);
 
         if (error) throw error;
 
         console.log('Cards fetched successfully:', cardsData?.length || 0, 'cards found');
-        setPlayerCards(cardsData || []);
+        
+        // Transform Card objects to BattleCard objects
+        const formattedCards: BattleCard[] = (cardsData || []).map((pc: any) => ({
+          id: pc.id, // This is player_card_id
+          name: pc.cards.name || pc.cards.card_name,
+          imageUrl: pc.cards.image_url || '',
+          rarity: pc.cards.rarity,
+          type: pc.cards.type || pc.cards.card_type,
+          attributes: pc.cards.attributes,
+        }));
+        
+        setPlayerCards(formattedCards);
 
       } catch (error: any) {
         toast({ title: 'Error fetching cards', description: error.message, variant: 'destructive' });
@@ -50,7 +60,7 @@ export default function CreateChallenge() {
     fetchPlayerCards();
   }, [toast]);
 
-  const handleCardSelect = (card: Card) => {
+  const handleCardSelect = (card: BattleCard) => {
     setSelectedCard(card);
     setIsSelecting(false);
   };
@@ -138,7 +148,7 @@ export default function CreateChallenge() {
           {selectedCard && (
             <Button onClick={handleCreateCharacter} disabled={isSubmitting} className='w-full'>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 
-              Create Challenge with {selectedCard.card_name}
+              Create Challenge with {selectedCard.name}
             </Button>
           )}
         </div>
@@ -151,6 +161,7 @@ export default function CreateChallenge() {
             onCardSelect={handleCardSelect}
             selectedCard={selectedCard} 
             isSubmitting={isSubmitting}
+            onConfirmSelection={async () => { /* No-op for this component */ }}
           />
           <Button onClick={() => setIsSelecting(false)} variant='ghost' className='w-full mt-4'>Cancel</Button>
         </div>

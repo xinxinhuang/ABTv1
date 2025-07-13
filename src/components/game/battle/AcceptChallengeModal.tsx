@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CardSelector } from './CardSelector';
+import { CardSelector, BattleCard } from './CardSelector';
 import { supabase } from '@/lib/supabase/client';
-import { Card } from '@/types/game';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -29,8 +28,8 @@ export default function AcceptChallengeModal({
   onChallengeAccepted
 }: AcceptChallengeModalProps) {
   const { toast } = useToast();
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const [playerCards, setPlayerCards] = useState<Card[]>([]);
+  const [selectedCard, setSelectedCard] = useState<BattleCard | null>(null);
+  const [playerCards, setPlayerCards] = useState<BattleCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -42,14 +41,21 @@ export default function AcceptChallengeModal({
         if (user) {
           const { data, error } = await supabase
             .from('player_cards')
-            .select('*')
+            .select('*, cards(*)')
             .eq('player_id', user.id);
 
           if (error) {
             toast({ title: 'Error fetching cards', description: error.message, variant: 'destructive' });
           } else {
-            // No need to format the cards, as player_cards already contains all the card information
-            setPlayerCards(data || []);
+            const formattedCards: BattleCard[] = (data || []).map((pc: any) => ({
+              id: pc.id, // This is player_card_id
+              name: pc.cards.name,
+              imageUrl: pc.cards.image_url,
+              rarity: pc.cards.rarity,
+              type: pc.cards.type,
+              attributes: pc.cards.attributes,
+            }));
+            setPlayerCards(formattedCards);
           }
         }
         setIsLoading(false);
@@ -102,9 +108,10 @@ export default function AcceptChallengeModal({
           <div>
             <CardSelector 
               cards={playerCards}
-              onCardSelect={(card: Card) => setSelectedCard(card)}
+              onCardSelect={(card: BattleCard) => setSelectedCard(card)}
               selectedCard={selectedCard}
               isSubmitting={isSubmitting}
+              onConfirmSelection={async () => { /* No-op for this modal */ }}
             />
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="ghost" onClick={onClose}>Cancel</Button>

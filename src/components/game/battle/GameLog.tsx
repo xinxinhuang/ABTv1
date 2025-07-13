@@ -1,18 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-
-// Define an interface for the battle state for type safety
-interface BattleState {
-  status: 'pending' | 'in_progress' | 'completed' | 'declined';
-  battle_state: {
-    turn: number;
-    winner?: string | null; // Winner may not be present initially
-  };
-}
+import { BattleInstance } from '@/types/battle';
 
 interface GameLogProps {
-  battleState: BattleState | null;
+  battleState: BattleInstance | null;
 }
 
 export const GameLog: React.FC<GameLogProps> = ({ battleState }) => {
@@ -23,10 +15,27 @@ export const GameLog: React.FC<GameLogProps> = ({ battleState }) => {
 
     // This is a simple log generator. A real implementation would track events.
     const newLogs: string[] = [];
-    if (battleState.status === 'in_progress') {
-        newLogs.push(`Turn: ${battleState.battle_state.turn}`);
-    } else if (battleState.status === 'completed') {
-        newLogs.push(`Battle Over! Winner: ${battleState.battle_state.winner}`);
+    
+    switch (battleState.status) {
+      case 'pending':
+        newLogs.push('Battle is pending. Waiting for opponent...');
+        break;
+      case 'active':
+        newLogs.push('Battle is active. Select your cards!');
+        break;
+      case 'cards_revealed':
+        newLogs.push('Cards have been revealed. Battle in progress...');
+        break;
+      case 'in_progress':
+        newLogs.push(`Battle in progress. Turn: ${battleState.turn || 1}`);
+        break;
+      case 'completed':
+        if (battleState.winner_id) {
+          newLogs.push(`Battle Over! Winner ID: ${battleState.winner_id.slice(0, 8)}...`);
+        } else {
+          newLogs.push('Battle Over! It was a draw.');
+        }
+        break;
     }
 
     setLogs(prevLogs => [...prevLogs, ...newLogs].slice(-10)); // Keep last 10 logs

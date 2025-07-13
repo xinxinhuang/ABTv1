@@ -24,17 +24,17 @@ serve(async (req: Request) => {
     const { lobby_id, response, user_id } = await req.json();
     if (!lobby_id || !response) throw new Error('Missing lobby_id or response in request body.');
 
-    // 1. Fetch the lobby
+    // 1. Fetch the battle instance
     const { data: lobby, error: lobbyError } = await supabaseAdmin
-      .from('battle_lobbies')
-      .select('id, player1_id, player2_id, status')
+      .from('battle_instances')
+      .select('id, challenger_id, opponent_id, status')
       .eq('id', lobby_id)
       .single();
 
     if (lobbyError || !lobby) throw new Error('Lobby not found.');
 
-    // 2. Security Check: Ensure the user responding is player2
-    if (lobby.player2_id !== user_id) {
+    // 2. Security Check: Ensure the user responding is the opponent
+    if (lobby.opponent_id !== user_id) {
       throw new Error('You are not authorized to respond to this challenge.');
     }
 
@@ -43,13 +43,13 @@ serve(async (req: Request) => {
     }
 
     const realtimeClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '');
-    const challengerChannel = realtimeClient.channel(`users:${lobby.player1_id}`);
+    const challengerChannel = realtimeClient.channel(`users:${lobby.challenger_id}`);
     await challengerChannel.subscribe();
 
     if (response === 'accepted') {
-      // 3a. Update lobby status to 'active'
+      // 3a. Update battle instance status to 'active'
       const { error: updateError } = await supabaseAdmin
-        .from('battle_lobbies')
+        .from('battle_instances')
         .update({ status: 'active' })
         .eq('id', lobby_id);
 
@@ -67,10 +67,10 @@ serve(async (req: Request) => {
         status: 200,
       });
     } else if (response === 'declined') {
-      // 3b. Delete the lobby
+      // 3b. Update the battle instance status to 'declined'
       const { error: deleteError } = await supabaseAdmin
-        .from('battle_lobbies')
-        .delete()
+        .from('battle_instances')
+        .update({ status: 'declined' })
         .eq('id', lobby_id);
 
       if (deleteError) throw new Error('Failed to decline challenge.');

@@ -3,21 +3,22 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { useUser } from '../../../hooks/useUser';
-import { BattleLobby } from '@/types/battle';
+import { BattleInstance, BattleSelection } from '@/types/battle';
 
 interface BattleResultsProps {
-  lobby: BattleLobby;
+  battle: BattleInstance;
+  selections: BattleSelection[];
   onClose: () => void;
 }
 
-export const BattleResults = ({ lobby, onClose }: BattleResultsProps) => {
+export const BattleResults = ({ battle, selections, onClose }: BattleResultsProps) => {
   const { user } = useUser();
 
   if (!user) return null;
 
-  const isPlayer1 = user.id === lobby.player1_id;
-  const winner_key = lobby.status === 'finished_player1_won' ? 'player1' : 'player2';
-  const isWinner = (isPlayer1 && winner_key === 'player1') || (!isPlayer1 && winner_key === 'player2');
+  const isChallenger = user.id === battle.challenger_id;
+  // Determine if the current user is the winner based on winner_id
+  const isWinner = battle.winner_id === user.id;
 
   return (
     <motion.div

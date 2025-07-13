@@ -1,3 +1,69 @@
+/**
+ * Battle status values used across the battle system
+ */
+export type BattleStatus = 'awaiting_opponent' | 'in_progress' | 'completed' | 'selecting' | 'cards_revealed' | 'active' | 'pending' | 'cancelled' | 'declined';
+
+/**
+ * Battle card representation for UI components
+ */
+export interface BattleCard {
+  id: string;
+  name: string;
+  imageUrl: string;
+  rarity: string;
+  type: string;
+  attributes?: Record<string, any>;
+}
+
+/**
+ * Battle instance - matches battle_instances table schema
+ */
+export interface BattleInstance {
+  id: string;
+  created_at: string;
+  challenger_id: string;
+  opponent_id?: string;
+  status: BattleStatus;
+  winner_id?: string;
+  completed_at?: string;
+  turn?: 'challenger' | 'opponent';
+  transfer_completed?: boolean;
+  explanation?: string | null;
+  updated_at?: string;
+}
+
+/**
+ * Battle selection - matches battle_selections table schema
+ */
+export interface BattleSelection {
+  id: string;
+  lobby_id: string;
+  player_id: string;
+  player_card_id: string;
+  created_at: string;
+}
+
+/**
+ * @deprecated Use BattleInstance instead
+ * Kept for backward compatibility during transition
+ */
+export interface BattleLobby {
+  id: string;
+  challenger_id: string;
+  opponent_id: string | null;
+  status: BattleStatus;
+  created_at: string;
+  updated_at?: string;
+  winner_id: string | null;
+  completed_at: string | null;
+  transfer_completed?: boolean;
+  explanation?: string | null;
+}
+
+/**
+ * @deprecated No longer used
+ * Replaced by direct queries to battle_selections table
+ */
 export interface BattleState {
   player1_cards?: string[];
   player2_cards?: string[];
@@ -12,16 +78,4 @@ export interface BattleState {
   player2_hand?: string[];
   log?: string[];
   winner?: 'player1' | 'player2' | null;
-}
-
-export type BattleLobbyStatus = 'pending' | 'card_selection' | 'in_progress' | 'completed' | 'declined' | 'cancelled' | 'finished_player1_won' | 'finished_player2_won';
-
-export interface BattleLobby {
-  id: string;
-  player1_id: string;
-  player2_id: string;
-  status: BattleLobbyStatus;
-  battle_state: BattleState;
-  created_at: string;
-  winner_id: string | null;
 }

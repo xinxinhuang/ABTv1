@@ -1,4 +1,6 @@
-import { serve } from 'std/http/server.ts';
+// deno-lint-ignore-file
+// @ts-nocheck
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from '@supabase/supabase-js';
 import { corsHeaders } from '../_shared/cors.ts';
 

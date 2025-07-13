@@ -1,6 +1,14 @@
-import { serve } from 'std/http/server.ts';
-import { createClient } from '@supabase/supabase-js';
-import { corsHeaders } from '../_shared/cors.ts';
+// deno-lint-ignore-file
+// @ts-nocheck
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// CORS headers for browser compatibility
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -19,14 +27,14 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Authentication failed.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
     }
 
-    const { data: lobby, error: lobbyError } = await supabaseAdmin.from('battle_lobbies').select('*').eq('id', lobby_id).single();
-    if (lobbyError || !lobby) throw new Error('Lobby not found.');
-    if (lobby.player2_id !== user.id) throw new Error('You are not the challenged player.');
+    const { data: lobby, error: lobbyError } = await supabaseAdmin.from('battle_instances').select('*').eq('id', lobby_id).single();
+    if (lobbyError || !lobby) throw new Error('Battle instance not found.');
+    if (lobby.opponent_id !== user.id) throw new Error('You are not the challenged player.');
     if (lobby.status !== 'pending') throw new Error('This challenge is no longer pending.');
 
     const { data: updatedLobby, error: updateError } = await supabaseAdmin
-      .from('battle_lobbies')
-      .update({ status: 'card_selection' })
+      .from('battle_instances')
+      .update({ status: 'active' })
       .eq('id', lobby_id)
       .select()
       .single();

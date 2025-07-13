@@ -1,19 +1,31 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
+/**
+ * Legacy Battle Page - Redirects to the new battle route
+ * 
+ * This page handles redirects from the old battle route (/battle/[lobbyId])
+ * to the new battle route (/game/arena/battle/[battleId])
+ */
 
 export default function BattlePage() {
-  const params = useParams();
-  const lobbyId = params.lobbyId;
+  const router = useRouter();
+  const { lobbyId } = useParams();
+
+  useEffect(() => {
+    if (lobbyId) {
+      console.log(`Redirecting from legacy battle route to new battle route: /game/arena/battle/${lobbyId}`);
+      router.replace(`/game/arena/battle/${lobbyId}`);
+    }
+  }, [lobbyId, router]);
 
   return (
-    <div className="container mx-auto p-4 text-white">
-      <h1 className="text-3xl font-bold mb-4">Battle Arena</h1>
-      <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <p className="text-lg">Welcome to the battle lobby!</p>
-        <p className="mt-2">Your game is about to begin.</p>
-        <p className="mt-4">Lobby ID: <span className="font-mono bg-gray-700 p-1 rounded">{lobbyId as string}</span></p>
-        <p className="mt-6 text-yellow-400">This is the placeholder for the battle screen. The next step is to build the card selection and gameplay UI here.</p>
+    <div className="flex items-center justify-center min-h-[70vh]">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-white mx-auto mb-4"></div>
+        <p className="text-xl">Redirecting to new battle page...</p>
       </div>
     </div>
   );

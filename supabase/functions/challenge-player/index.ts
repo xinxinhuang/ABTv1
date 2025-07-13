@@ -23,7 +23,8 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { player1_id, challenged_player_id: player2_id } = await req.json();
+    const { player1_id, challenged_player_id } = await req.json();
+    const player2_id = challenged_player_id;
     if (!player1_id) throw new Error('Missing player1_id in request body.');
     if (!player2_id) throw new Error('Missing challenged_player_id in request body.');
 
@@ -36,10 +37,10 @@ serve(async (req: Request) => {
     const { data: player2Data, error: player2Error } = await supabaseAdmin.auth.admin.getUserById(player2_id);
     if (player2Error || !player2Data.user) throw new Error('Challenged player does not exist.');
 
-    // Create a new battle lobby
+    // Create a new battle instance
     const { data: newLobby, error: createError } = await supabaseAdmin
-      .from('battle_lobbies')
-      .insert({ player1_id, player2_id, status: 'pending' })
+      .from('battle_instances')
+      .insert({ challenger_id: player1_id, opponent_id: player2_id, status: 'pending' })
       .select()
       .single();
 
