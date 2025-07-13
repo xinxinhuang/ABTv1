@@ -74,7 +74,66 @@ This document tracks the progress, issues, and solutions implemented during the 
 
 ## Game Feature Enhancements and Bug Fixes
 
-### 1. Unlimited Booster Pack System
+### 1. Battle Card Selection System
+
+**Problem**: Players were unable to see and select their cards in the battle arena. The battle page was not displaying the player's card collection, and there were errors in the database queries and Edge Function logic.
+
+**Identification Process**:
+- Observed that battle instances and player matching worked correctly, but players couldn't see their cards
+- Found 400 Bad Request errors when trying to fetch player cards
+- Discovered a mismatch between the frontend's expectation of a separate `cards` table and the actual database schema
+- Identified that the Edge Function was expecting an array of 5 cards while the game design had changed to use a single card per player
+
+**Solution**:
+1. **Database Query Fix**:
+   - Analyzed the database schema and discovered that card data is stored directly in the `player_cards` table
+   - Updated the `CardSelectionGrid` component to query the `player_cards` table directly without attempting joins
+   - Fixed type casting for card properties to match the expected TypeScript interfaces
+
+2. **Edge Function Update**:
+   - Modified the `select-cards` Edge Function to handle a single card selection instead of an array of five cards
+   - Updated validation logic to check for a single card ID instead of an array
+   - Simplified the database insertion to handle a single record
+   - Redeployed the Edge Function using Supabase MCP tools
+
+3. **UI Improvements**:
+   - Created a new `CardSelectionGrid` component to display the player's full card collection
+   - Implemented card selection UI with visual feedback for the selected card
+   - Added proper error handling and loading states
+
+**Results**:
+- Players can now see their entire card collection in the battle arena
+- Card selection works correctly with proper validation
+- Battle status updates properly when both players have selected their cards
+- The battle flow progresses smoothly from card selection to the actual battle
+
+### 2. Battle System Refactoring
+
+**Problem**: Inconsistent parameter naming across the battle system caused routing and data fetching errors. The database schema had moved from using `lobby_id` to `battle_id` as the primary reference field, but many frontend components were still using `lobbyId`.
+
+**Identification Process**:
+- Observed 404 errors when navigating to battle pages due to mismatched route parameters
+- Found real-time subscriptions failing to update due to incorrect filter parameters
+- Discovered empty data in battle selection queries due to field name mismatch
+- Used logging to trace where subscription events were properly triggering but data wasn't loading
+
+**Solution**:
+- Comprehensive audit of all battle-related components to identify inconsistent parameter naming
+- Updated all database queries in battle-related components to use `battle_id` consistently:
+  - Changed filters in real-time Supabase subscriptions from `lobby_id=eq.${battleId}` to `battle_id=eq.${battleId}`
+  - Updated all database query parameters in selections and battle instance fetches
+  - Refactored `CardSelection` component to store selections with `battle_id` instead of `lobby_id`
+  - Ensured `BattleArena` component uses consistent parameter naming for subscriptions and data fetching
+- Created a redirect from the old battle route `/battle/[lobbyId]` to the new route `/game/arena/battle/[battleId]` for backward compatibility
+- Added proper error handling and logging to simplify future debugging
+
+**Results**:
+- Battle system now works consistently with players able to properly enter battles, select cards, and receive real-time updates
+- Fixed navigation flow from challenge acceptance to battle screen for both players
+- Eliminated 404 errors and data fetching issues related to parameter mismatches
+- Improved code maintainability with consistent parameter naming throughout the application
+
+### 2. Unlimited Booster Pack System
 
 **Problem**: Limited booster pack inventory created artificial constraints for players.
 
