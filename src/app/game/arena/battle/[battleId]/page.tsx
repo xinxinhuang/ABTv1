@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
 import { useParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 import { BattleGrid } from '@/components/game/battle/BattleGrid';
 import { CardSelectionGrid } from '@/components/game/battle/CardSelectionGrid';
@@ -21,6 +21,7 @@ export default function BattlePage() {
   const [player1Card, setPlayer1Card] = useState<any>(null);
   const [player2Card, setPlayer2Card] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [checkingSelection, setCheckingSelection] = useState(true);
   const [playerHasSelectedCard, setPlayerHasSelectedCard] = useState(false);
   const [opponentHasSelectedCard, setOpponentHasSelectedCard] = useState(false);
@@ -165,79 +166,115 @@ export default function BattlePage() {
     checkPlayerSelection();
   }, [battle?.id, user, battle?.challenger_id, supabase]);
 
-  useEffect(() => {
-    if (!battleId || !user) return;
-
-    const fetchBattleData = async () => {
+  // Extract fetchBattleData as a standalone function that can be reused
+  const fetchBattleData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      try {
-        console.log(`Fetching battle data for ${battleId}`);
-        const { data: battleData, error: battleError } = await supabase
-          .from('battle_instances')
-          .select('*')
-          .eq('id', battleId)
-          .single();
+    }
+    
+    try {
+      console.log(`Fetching battle data for ${battleId}`);
+      const { data: battleData, error: battleError } = await supabase
+        .from('battle_instances')
+        .select('*')
+        .eq('id', battleId)
+        .single();
 
-        if (battleError || !battleData) throw new Error('Battle not found');
-        console.log(`Retrieved battle data: status=${battleData.status}`);
-        setBattle(battleData);
+      if (battleError || !battleData) throw new Error('Battle not found');
+      console.log(`Retrieved battle data: status=${battleData.status}`);
+      setBattle(battleData);
 
-        // Fetch battle selection without nested queries
-        // Use raw REST API call to avoid 406 errors
-        const battleSelectionsUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/battle_selections?battle_id=eq.${battleId}&limit=1`;
-        const response = await fetch(battleSelectionsUrl, {
-          headers: {
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        });
+      // Fetch battle selection using Supabase client
+      console.log('Fetching battle selection...');
+      const { data: selectionData, error: selectionError } = await supabase
+        .from('battle_selections')
+        .select('*')
+        .eq('battle_id', battleId)
+        .maybeSingle();
+      
+      console.log('Selection data:', selectionData);
+      console.log('Selection error:', selectionError);
+
+      if (selectionError && selectionError.code !== 'PGRST116') {
+        console.error('Error fetching battle selection:', selectionError);
+      } else if (selectionData) {
+        setSelection(selectionData);
         
-        let selectionData = null;
-        let selectionError = null;
+        // Set player and opponent selection status
+        if (user && battleData) {
+          const isChallenger = user.id === battleData.challenger_id;
+          const hasSelected = isChallenger ? !!selectionData.player1_card_id : !!selectionData.player2_card_id;
+          const opponentSelected = isChallenger ? !!selectionData.player2_card_id : !!selectionData.player1_card_id;
+          
+          console.log(`Player (${isChallenger ? 'challenger' : 'opponent'}) has selected: ${hasSelected}`);
+          console.log(`Opponent has selected: ${opponentSelected}`);
+          
+          setPlayerHasSelectedCard(hasSelected);
+          setOpponentHasSelectedCard(opponentSelected);
+          
+          if (opponentSelected) {
+            setLastUpdateTime(new Date().toLocaleTimeString());
+          }
+        }
         
-        if (response.ok) {
-          const data = await response.json();
-          selectionData = data[0] || null; // Get first result or null
-        } else {
-          selectionError = { 
-            message: `Error fetching battle selection: ${response.status} ${response.statusText}`,
-            code: response.status.toString()
-          };
-        }
-
-        if (selectionError) {
-          if (selectionError.code !== 'PGRST116') { // Not found is expected if no selections yet
-            console.error('Error fetching battle selection:', selectionError);
-          }
-        } else if (selectionData) {
-          setSelection(selectionData);
-          
-          // Set player and opponent selection status
-          if (user && battleData) {
-            const isChallenger = user.id === battleData.challenger_id;
-            const hasSelected = isChallenger ? !!selectionData.player1_card_id : !!selectionData.player2_card_id;
-            const opponentSelected = isChallenger ? !!selectionData.player2_card_id : !!selectionData.player1_card_id;
-            
-            setPlayerHasSelectedCard(hasSelected);
-            setOpponentHasSelectedCard(opponentSelected);
-            
-            if (opponentSelected) {
-              setLastUpdateTime(new Date().toLocaleTimeString());
-            }
-          }
-          
-          // Use the fetchCardDetails function to get card information
-          fetchCardDetails(selectionData);
-        }
-      } catch (err) {
-        console.error('Error fetching battle data:', err);
-      } finally {
+        // Use the fetchCardDetails function to get card information
+        await fetchCardDetails(selectionData);
+      } else {
+        console.warn('No selection data found - this may indicate a database issue');
+        setSelection(null);
+      }
+    } catch (err) {
+      console.error('Error fetching battle data:', err);
+    } finally {
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
         setLoading(false);
       }
-    };
+    }
+  }, [battleId, user, supabase, fetchCardDetails]);
 
+  // Manual trigger for auto-resolve (for debug purposes)
+  const triggerAutoResolve = useCallback(async () => {
+    console.log('Manually triggering auto-resolve...');
+    if (!battle || !selection) {
+      console.log('Missing battle or selection data for manual trigger');
+      return;
+    }
+    
+    const bothSubmitted = selection.player1_card_id && selection.player2_card_id;
+    console.log('Both players submitted:', bothSubmitted);
+    
+    if (bothSubmitted && battle.status === 'cards_revealed') {
+      console.log('Calling resolve-battle-v2 manually...');
+      try {
+        const { data, error } = await supabase.functions.invoke('resolve-battle-v2', {
+          body: { battle_id: battle.id }
+        });
+        
+        if (error) {
+          console.error('Manual resolve error:', error);
+        } else {
+          console.log('Manual resolve success:', data);
+        }
+      } catch (err) {
+        console.error('Manual resolve exception:', err);
+      }
+    }
+  }, [battle, selection, supabase]);
+
+  // Handle manual refresh
+  const handleRefresh = useCallback(async () => {
+    console.log('Manual refresh triggered');
+    await fetchBattleData(true);
+    // After refresh, trigger auto-resolve if needed
+    setTimeout(triggerAutoResolve, 1000);
+  }, [fetchBattleData, triggerAutoResolve]);
+
+  useEffect(() => {
+    if (!battleId || !user) return;
     fetchBattleData();
 
     // Set up a single channel for all battle-related subscriptions
@@ -563,15 +600,15 @@ export default function BattlePage() {
       />;
     }
     
-    // Phase 3: Battle In Progress and Completion
-    if (battle.status === 'in_progress' || battle.status === 'completed') {
+    // Phase 3: Battle In Progress
+    if (battle.status === 'in_progress') {
       return <BattleGrid 
         battle={battle} 
         player1Card={player1Card} 
         player2Card={player2Card} 
         onResolveBattle={() => {
           if (battle.id) {
-            console.log('Explicitly calling resolve-battle-v2 for in_progress/completed state');
+            console.log('Explicitly calling resolve-battle-v2 for in_progress state');
             supabase.functions.invoke('resolve-battle-v2', {
               body: { battle_id: battle.id }
             })
@@ -587,12 +624,119 @@ export default function BattlePage() {
       />;
     }
 
+    // Phase 4: Battle Completed - Show results
+    if (battle.status === 'completed') {
+      console.log('Rendering completed battle results');
+      
+      const isWinner = battle.winner_id === user?.id;
+      const isDraw = !battle.winner_id;
+      
+      return (
+        <div className="text-center p-8 space-y-6">
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h1 className={`text-4xl font-bold mb-4 ${
+              isDraw ? 'text-yellow-400' : 
+              isWinner ? 'text-green-400' : 'text-red-400'
+            }`}>
+              {isDraw ? 'It\'s a Draw!' : isWinner ? 'You Won!' : 'You Lost!'}
+            </h1>
+            
+            {battle.winner_id && (
+              <p className="text-gray-300 mb-4">
+                Winner: {battle.winner_id === battle.challenger_id ? 'Challenger' : 'Opponent'}
+              </p>
+            )}
+            
+            <div className="grid grid-cols-2 gap-8 max-w-2xl mx-auto mt-6">
+              {/* Player 1 Card */}
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2">Challenger's Card</h3>
+                {player1Card ? (
+                  <div className="bg-gray-800 p-4 rounded-lg">
+                    <h4 className="font-bold text-blue-400">{player1Card.name}</h4>
+                    <p className="text-sm text-gray-400">{player1Card.type}</p>
+                    <p className="text-sm text-gray-400">{player1Card.rarity}</p>
+                    <div className="mt-2 text-sm">
+                      <div>STR: {player1Card.attributes?.str || 0}</div>
+                      <div>DEX: {player1Card.attributes?.dex || 0}</div>
+                      <div>INT: {player1Card.attributes?.int || 0}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-800 p-4 rounded-lg">
+                    <p className="text-gray-400">Card data unavailable</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Player 2 Card */}
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2">Opponent's Card</h3>
+                {player2Card ? (
+                  <div className="bg-gray-800 p-4 rounded-lg">
+                    <h4 className="font-bold text-blue-400">{player2Card.name}</h4>
+                    <p className="text-sm text-gray-400">{player2Card.type}</p>
+                    <p className="text-sm text-gray-400">{player2Card.rarity}</p>
+                    <div className="mt-2 text-sm">
+                      <div>STR: {player2Card.attributes?.str || 0}</div>
+                      <div>DEX: {player2Card.attributes?.dex || 0}</div>
+                      <div>INT: {player2Card.attributes?.int || 0}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-800 p-4 rounded-lg">
+                    <p className="text-gray-400">Card data unavailable</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="mt-6 space-y-4">
+              <button
+                onClick={() => window.location.href = '/game'}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+              >
+                Return to Game
+              </button>
+              
+              <button
+                onClick={() => window.location.href = '/game/arena'}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold ml-4"
+              >
+                Find New Battle
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return <div className="p-4 text-xl font-bold">Unhandled battle status: {battle.status}</div>;
   };
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Battle Arena - {battle?.id}</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Battle Arena - {battle?.id}</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+          {battle?.status === 'cards_revealed' && (
+            <button
+              onClick={triggerAutoResolve}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+            >
+              Force Resolve
+            </button>
+          )}
+        </div>
+      </div>
       <div className="flex flex-col lg:flex-row gap-4">
         <div className="w-full lg:w-3/4">
           {renderContent()}

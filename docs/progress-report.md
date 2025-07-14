@@ -553,3 +553,141 @@ This document tracks the progress, issues, and solutions implemented during the 
 ## Conclusion
 
 The Booster Card Battle application has undergone significant improvements in deployment configuration, UI readability, and game mechanics. The implementation of unlimited booster packs has simplified the player experience while maintaining the time-gated mechanics. The battle system has been completely refactored to provide a more reliable and consistent experience with proper real-time updates. Edge Function improvements have resolved deployment issues and CORS problems, ensuring smooth operation of the backend services. The application now successfully builds and runs in production with all core features fully functional and a solid foundation for future enhancements.
+
+## Battle Resolution System Fixes (July 14, 2025)
+
+### Problem 1: Battle Arena Stuck on "Loading Battle..." After Card Selection
+
+**Timestamp**: July 14, 2025 - 22:33 UTC
+
+**Problem**: After both players submitted their cards, the battle arena remained stuck on "loading battle..." message. The battle status was transitioning to 'cards_revealed' but the resolution process was failing silently.
+
+**Root Cause Analysis**:
+- Database triggers were attempting to access `SERVICE_ROLE_KEY` from `vault.decrypted_secrets` table
+- The `auto_resolve_battle` trigger was configured to automatically call the `resolve-battle` Edge Function
+- The trigger was failing because the SERVICE_ROLE_KEY wasn't properly configured in the vault
+- This caused the battle to transition to 'cards_revealed' status but never complete resolution
+
+**Solution**:
+1. **Frontend Auto-Resolve Logic**: Added client-side auto-resolution mechanism in the battle page
+   - Implemented logic to detect when both players have submitted cards and battle status is 'cards_revealed'
+   - Automatically calls the `resolve-battle-v2` Edge Function from the frontend
+   - Added proper error handling and fallback mechanisms
+   - Bypasses the failing database trigger system
+
+2. **Database Trigger Disable**: Disabled the problematic `auto_resolve_battle` trigger
+   - Prevents the database from attempting to use the unavailable SERVICE_ROLE_KEY
+   - Maintains data integrity while allowing frontend-driven resolution
+
+3. **Enhanced Real-time Updates**: Improved opponent selection status tracking
+   - Added live timestamps and visual indicators for card selection status
+   - Implemented proper real-time subscriptions for battle state changes
+   - Added detailed console logging for debugging battle flow
+
+**Results**:
+- Battle arena now properly transitions from card selection to resolution
+- Real-time updates work correctly for both players
+- Battle resolution completes successfully without hanging
+
+### Problem 2: PGRST204 Error - Non-existent 'explanation' Column
+
+**Timestamp**: July 14, 2025 - 22:33 UTC
+
+**Problem**: The `resolve-battle-v2` Edge Function was throwing a PGRST204 error:
+```
+Could not find the 'explanation' column of 'battle_instances' in the schema cache
+```
+
+**Root Cause Analysis**:
+- The Edge Function was attempting to update a non-existent `explanation` column in the `battle_instances` table
+- Database schema only contained columns: `id`, `challenger_id`, `opponent_id`, `status`, `winner_id`, `created_at`, `completed_at`, `transfer_completed`, `bonus_card_id`, `resolved_at`
+- The `explanation` field was being used to store battle outcome details but didn't exist in the actual schema
+
+**Solution**:
+1. **Schema-Compliant Updates**: Modified the Edge Function to only update existing columns
+   - Removed the `explanation` field from the database update operation
+   - Updated the function to use only valid columns: `status`, `winner_id`, `completed_at`, `resolved_at`
+   - Maintained explanation logic for response data without storing it in the database
+
+2. **Enhanced Error Handling**: Added better error reporting
+   - Included detailed error messages in Edge Function responses
+   - Added proper error logging for debugging
+   - Maintained battle explanation in the response payload for frontend display
+
+**Results**:
+- Battle resolution now completes without database schema errors
+- Battle status updates properly to 'completed' with winner information
+- Error handling provides clear feedback for debugging
+
+### Problem 3: Incorrect Type Advantage Logic
+
+**Timestamp**: July 14, 2025 - 22:45 UTC
+
+**Problem**: Battle resolution was incorrectly resulting in draws when there should have been clear type advantage winners.
+
+**Example Case**:
+- Player 1: Galactic Ranger (challenger)
+- Player 2: Space Marine (opponent)
+- Expected Result: Space Marine wins (type advantage)
+- Actual Result: Draw (incorrect attribute comparison)
+
+**Root Cause Analysis**:
+- The Edge Function was comparing `card_type` (which was "humanoid" for both cards) instead of `card_name`
+- Since both cards had the same `card_type`, the system treated them as identical types
+- This bypassed the type advantage system and fell back to attribute comparison
+- The type advantage system (Void Sorcerer > Space Marine > Galactic Ranger) was never triggered
+
+**Solution**:
+1. **Fixed Type Comparison Logic**: Updated the comparison mechanism
+   ```typescript
+   // OLD - Incorrect logic
+   const card1Type = player1Card.card_type;  // "humanoid"
+   const card2Type = player2Card.card_type;  // "humanoid"
+   
+   // NEW - Correct logic
+   const card1Name = player1Card.card_name.toLowerCase();  // "galactic ranger"
+   const card2Name = player2Card.card_name.toLowerCase();  // "space marine"
+   ```
+
+2. **Enhanced Type Advantage System**: Implemented proper rock-paper-scissors logic
+   - **Void Sorcerer** beats **Space Marine**
+   - **Space Marine** beats **Galactic Ranger**
+   - **Galactic Ranger** beats **Void Sorcerer**
+   - Same card types compare primary attributes (str for Space Marine, dex for Galactic Ranger, int for Void Sorcerer)
+
+3. **Improved Battle Logic Flow**: Added detailed logging and validation
+   - Added console logging for card name comparisons
+   - Enhanced explanation messages for battle outcomes
+   - Added proper winner determination logging
+   - Improved card transfer and history recording
+
+**Results**:
+- Type advantage system now works correctly
+- Battles produce accurate results based on card types
+- Clear explanations provided for battle outcomes
+- Card transfers execute properly for winners
+
+### System Impact and Benefits
+
+**Performance Improvements**:
+- Battle resolution time reduced from hanging indefinitely to completing within seconds
+- Real-time updates now work reliably for both players
+- Reduced server load by eliminating failed database trigger attempts
+
+**User Experience Enhancements**:
+- Players now see immediate battle results instead of infinite loading
+- Clear feedback provided for battle outcomes and explanations
+- Smooth transition from card selection to battle resolution
+- Live opponent status updates during card selection phase
+
+**Code Quality Improvements**:
+- Enhanced error handling throughout the battle system
+- Comprehensive logging for debugging battle flow issues
+- Schema-compliant database operations
+- Proper separation of concerns between frontend and backend logic
+
+**Future Maintenance**:
+- Created robust fallback mechanisms for Edge Function failures
+- Implemented detailed logging for easier debugging
+- Added comprehensive error handling to prevent system hangs
+- Documented battle resolution flow for future developers
