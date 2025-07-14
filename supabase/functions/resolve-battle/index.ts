@@ -23,24 +23,31 @@ function handleOptions(req: Request) {
   return null;
 }
 
-// Main function to serve HTTP requests
+/**
+ * Main function to resolve a battle between two players
+ * This Edge Function is triggered after both players have selected their cards
+ * and the battle status has been updated to 'cards_revealed'
+ */
 serve(async (req: Request) => {
   // Handle CORS preflight requests
   const preflightResponse = handleOptions(req);
   if (preflightResponse) return preflightResponse;
 
   try {
+    console.log("Resolve-battle Edge Function triggered");
+    
     // Create Supabase client with service role key (for admin privileges)
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { battle_id: lobby_id } = await req.json();
+    const requestData = await req.json();
+    const battleId = requestData.battle_id;
 
-    if (!lobby_id) {
+    if (!battleId) {
       return new Response(
-        JSON.stringify({ error: "Missing lobby_id parameter" }),
+        JSON.stringify({ error: "Missing battle_id parameter" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -48,18 +55,19 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log(`Resolving battle for lobby: ${lobby_id}`);
+    console.log(`Resolving battle for ID: ${battleId}`);
 
     // 1. Get the battle instance
-    const { data: lobby, error: lobbyError } = await supabase
+    const { data: battle, error: battleError } = await supabase
       .from("battle_instances")
       .select("*")
-      .eq("id", lobby_id)
+      .eq("id", battleId)
       .single();
 
-    if (lobbyError || !lobby) {
+    if (battleError || !battle) {
+      console.error("Battle not found:", battleError);
       return new Response(
-        JSON.stringify({ error: "Battle lobby not found", details: lobbyError }),
+        JSON.stringify({ error: "Battle not found", details: battleError }),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -68,11 +76,14 @@ serve(async (req: Request) => {
     }
 
     // Check if the battle is in the correct state to be resolved
-    if (lobby.status !== "cards_revealed") {
+    if (battle.status !== "cards_revealed") {
+      console.error(`Battle cannot be resolved. Current status: ${battle.status}`);
+      console.error(`Battle ID: ${battle.id}, Challenger: ${battle.challenger_id}, Opponent: ${battle.opponent_id}`);
       return new Response(
         JSON.stringify({ 
           error: "Battle cannot be resolved", 
-          details: `Current status is ${lobby.status}, must be 'cards_revealed'` 
+          details: `Current status is ${battle.status}, must be 'cards_revealed'`,
+          battle_id: battle.id
         }),
         {
           status: 400,
@@ -80,63 +91,137 @@ serve(async (req: Request) => {
         }
       );
     }
+    
+    console.log(`Battle status is correct: ${battle.status}, proceeding with resolution`);
+    console.log(`Battle participants: Challenger ${battle.challenger_id}, Opponent ${battle.opponent_id}`);
 
-    // 2. Get the battle selection record with both players' cards
+    // 2. Get the player cards from battle_selections table
+    console.log("Fetching player card selections");
+    
+    // Get the single consolidated row from battle_selections
     const { data: selection, error: selectionError } = await supabase
       .from("battle_selections")
-      .select(`
-        *,
-        player1:player1_card_id(
-          id,
-          player_id,
-          card_id,
-          cards:card_id(*)
-        ),
-        player2:player2_card_id(
-          id,
-          player_id,
-          card_id,
-          cards:card_id(*)
-        )
-      `)
-      .eq("battle_id", lobby_id)
+      .select("*")
+      .eq("battle_id", battleId)
       .single();
-
-    if (selectionError || !selection || !selection.player1 || !selection.player2) {
+    
+    if (selectionError || !selection) {
+      console.error("Error fetching battle selection:", selectionError);
       return new Response(
-        JSON.stringify({ 
-          error: "Could not retrieve both players' selections", 
-          details: selectionError || "Missing player selections" 
-        }),
+        JSON.stringify({ error: "Failed to fetch battle selection", details: selectionError }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    // Make sure both players have submitted their card selections
+    if (!selection.player1_card_id || !selection.player2_card_id) {
+      console.error("Incomplete battle selections:", selection);
+      return new Response(
+        JSON.stringify({ error: "Both players must select cards to resolve the battle" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-
-    // 3. Extract the card details from the selection
-    const player1Card = selection.player1.cards;
-    const player2Card = selection.player2.cards;
-
-    if (!player1Card || !player2Card) {
+    
+    // Map selection fields based on player roles
+    const challengerCardId = selection.player1_id === battle.challenger_id
+      ? selection.player1_card_id
+      : selection.player2_card_id;
+      
+    const opponentCardId = selection.player1_id === battle.opponent_id
+      ? selection.player1_card_id
+      : selection.player2_card_id;
+    
+    console.log(`Challenger card ID: ${challengerCardId}`);
+    console.log(`Opponent card ID: ${opponentCardId}`);
+    
+    if (!challengerCardId || !opponentCardId) {
+      console.error("Unable to determine card IDs for players");
       return new Response(
-        JSON.stringify({ error: "Missing card details from one or both players" }),
+        JSON.stringify({ error: "Unable to determine card IDs for players" }),
         {
-          status: 400,
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // 3. Fetch the detailed card information for each player's selection
+    console.log("Fetching card details");
+    
+    const { data: challengerCard, error: challengerCardError } = await supabase
+      .from("player_cards")
+      .select(`
+        id, 
+        player_id,
+        cards:card_id (
+          id, 
+          name, 
+          rarity, 
+          type, 
+          attributes
+        )
+      `)
+      .eq("id", challengerCardId)
+      .single();
+      
+    if (challengerCardError || !challengerCard) {
+      console.error("Error fetching challenger card:", challengerCardError);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch challenger's card", details: challengerCardError }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    const { data: opponentCard, error: opponentCardError } = await supabase
+      .from("player_cards")
+      .select(`
+        id, 
+        player_id,
+        cards:card_id (
+          id, 
+          name, 
+          rarity, 
+          type, 
+          attributes
+        )
+      `)
+      .eq("id", opponentCardId)
+      .single();
+      
+    if (opponentCardError || !opponentCard) {
+      console.error("Error fetching opponent card:", opponentCardError);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch opponent's card", details: opponentCardError }),
+        {
+          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
     // 4. Determine the winner based on game rules
+    console.log("Determining battle winner");
+    
     let winnerId: string | null = null;
     let explanation = "";
-
+    
+    // Extract actual card data
+    const player1CardData = challengerCard.cards;
+    const player2CardData = opponentCard.cards;
+    
     // Type advantage check (Rock-Paper-Scissors style)
-    if (player1Card.type === player2Card.type) {
+    if (player1CardData.type === player2CardData.type) {
       // Same type - compare primary attributes
-      const cardType = player1Card.type;
+      const cardType = player1CardData.type;
       let attributeToCompare = "";
       
       switch (cardType.toLowerCase()) {
@@ -153,14 +238,14 @@ serve(async (req: Request) => {
           attributeToCompare = "str"; // Default to strength
       }
 
-      const player1Value = player1Card.attributes[attributeToCompare] || 0;
-      const player2Value = player2Card.attributes[attributeToCompare] || 0;
+      const player1Value = player1CardData.attributes?.[attributeToCompare] || 0;
+      const player2Value = player2CardData.attributes?.[attributeToCompare] || 0;
 
       if (player1Value > player2Value) {
-        winnerId = lobby.challenger_id;
+        winnerId = battle.challenger_id;
         explanation = `Both players selected ${cardType}s. Challenger's card has higher ${attributeToCompare} (${player1Value} vs ${player2Value}).`;
       } else if (player2Value > player1Value) {
-        winnerId = lobby.opponent_id;
+        winnerId = battle.opponent_id;
         explanation = `Both players selected ${cardType}s. Opponent's card has higher ${attributeToCompare} (${player2Value} vs ${player1Value}).`;
       } else {
         // It's a tie - no winner
@@ -169,30 +254,34 @@ serve(async (req: Request) => {
     } else {
       // Different types - check type advantage
       if (
-        (player1Card.type.toLowerCase() === "void sorcerer" && player2Card.type.toLowerCase() === "space marine") ||
-        (player1Card.type.toLowerCase() === "space marine" && player2Card.type.toLowerCase() === "galactic ranger") ||
-        (player1Card.type.toLowerCase() === "galactic ranger" && player2Card.type.toLowerCase() === "void sorcerer")
+        (player1CardData.type.toLowerCase() === "void sorcerer" && player2CardData.type.toLowerCase() === "space marine") ||
+        (player1CardData.type.toLowerCase() === "space marine" && player2CardData.type.toLowerCase() === "galactic ranger") ||
+        (player1CardData.type.toLowerCase() === "galactic ranger" && player2CardData.type.toLowerCase() === "void sorcerer")
       ) {
-        winnerId = lobby.challenger_id;
-        explanation = `Challenger's ${player1Card.type} has type advantage over Opponent's ${player2Card.type}.`;
+        winnerId = battle.challenger_id;
+        explanation = `Challenger's ${player1CardData.type} has type advantage over Opponent's ${player2CardData.type}.`;
       } else {
-        winnerId = lobby.opponent_id;
-        explanation = `Opponent's ${player2Card.type} has type advantage over Challenger's ${player1Card.type}.`;
+        winnerId = battle.opponent_id;
+        explanation = `Opponent's ${player2CardData.type} has type advantage over Challenger's ${player1CardData.type}.`;
       }
     }
 
     // 5. Update the battle instance with the result
+    console.log(`Battle winner determined: ${winnerId || 'Draw'}`);
+    console.log(`Explanation: ${explanation}`);
+    
     const { error: updateError } = await supabase
       .from("battle_instances")
       .update({
         status: "completed",
         winner_id: winnerId,
         completed_at: new Date().toISOString(),
-        explanation: explanation, // Store the explanation for display in battle results
+        explanation: explanation,
       })
-      .eq("id", lobby_id);
+      .eq("id", battleId);
 
     if (updateError) {
+      console.error("Error updating battle status:", updateError);
       return new Response(
         JSON.stringify({ error: "Failed to update battle status", details: updateError }),
         {
@@ -204,63 +293,129 @@ serve(async (req: Request) => {
 
     // 6. If there's a winner, transfer the card from loser to winner
     if (winnerId) {
-      const loserId = winnerId === lobby.challenger_id ? lobby.opponent_id : lobby.challenger_id;
-      const loserSelection = winnerId === lobby.challenger_id ? player2Selection : player1Selection;
+      const loserId = winnerId === battle.challenger_id ? battle.opponent_id : battle.challenger_id;
+      const loserPlayerCardId = winnerId === battle.challenger_id ? opponentCardId : challengerCardId;
+      const loserCardName = winnerId === battle.challenger_id ? player2CardData.name : player1CardData.name;
+      const winnerName = winnerId === battle.challenger_id ? player1CardData.name : player2CardData.name;
+
+      console.log(`Battle winner: ${winnerId} with card "${winnerName}"`);
+      console.log(`Transferring card "${loserCardName}" (ID: ${loserPlayerCardId}) from ${loserId} to ${winnerId}`);
       
-      // Update card ownership
-      const { error: transferError } = await supabase
+      // Update card ownership in player_cards table
+      const { data: transferData, error: transferError } = await supabase
         .from("player_cards")
         .update({ player_id: winnerId })
-        .eq("id", loserSelection.player_card_id);
-
+        .eq("id", loserPlayerCardId)
+        .select();
+        
       if (transferError) {
         console.error("Error transferring card:", transferError);
-        // Continue despite error - we'll log but not fail the whole operation
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to transfer card", 
+            details: transferError,
+            card_id: loserPlayerCardId,
+            winner_id: winnerId,
+            loser_id: loserId 
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
-
-      // Record the transfer in history
-      await supabase.from("card_ownership_history").insert({
-        card_id: loserSelection.player_card_id,
-        previous_owner_id: loserId,
-        new_owner_id: winnerId,
-        transfer_type: "battle",
-        battle_id: lobby_id,
-      });
-
-      // Create notifications for both players
-      await supabase.from("notifications").insert([
-        {
-          user_id: winnerId,
-          message: `You won the battle! You claimed your opponent's ${loserSelection.player_cards.cards.name} card.`,
-          type: "battle_won",
-          reference_id: lobby_id,
-        },
-        {
-          user_id: loserId,
-          message: `You lost the battle. Your opponent claimed your ${loserSelection.player_cards.cards.name} card.`,
-          type: "battle_lost",
-          reference_id: lobby_id,
-        },
-      ]);
+      
+      console.log(`Card ownership updated successfully:`, transferData);
+      
+      // Record the transfer in card_ownership_history
+      const { data: historyData, error: historyError } = await supabase
+        .from("card_ownership_history")
+        .insert({
+          card_id: loserPlayerCardId,
+          previous_owner_id: loserId,
+          new_owner_id: winnerId,
+          transfer_type: "battle_win",
+          battle_id: battleId
+        })
+        .select();
+        
+      if (historyError) {
+        console.error("Error recording card transfer history:", historyError);
+        // We don't return an error response here since the transfer already happened
+      } else {
+        console.log(`Card transfer history recorded successfully:`, historyData);
+      }
+      
+      // Create detailed notifications for both players
+      const { data: notifData, error: notifError } = await supabase
+        .from("notifications")
+        .insert([
+          {
+            user_id: winnerId,
+            message: `Victory! You won the battle with ${winnerId === battle.challenger_id ? player1CardData.name : player2CardData.name} and claimed ${loserCardName}!`,
+            type: "battle_win",
+            reference_id: battleId,
+            metadata: { 
+              winner_card: winnerId === battle.challenger_id ? player1CardData.name : player2CardData.name,
+              loser_card: loserCardName
+            }
+          },
+          {
+            user_id: loserId,
+            message: `Defeat! You lost the battle and your ${loserCardName} card was claimed by your opponent.`,
+            type: "battle_loss",
+            reference_id: battleId,
+            metadata: { 
+              winner_card: winnerId === battle.challenger_id ? player1CardData.name : player2CardData.name,
+              loser_card: loserCardName
+            }
+          },
+        ])
+        .select();
+        
+      if (notifError) {
+        console.error("Error creating battle result notifications:", notifError);
+      } else {
+        console.log("Battle notifications created successfully:", notifData);
+      }
     } else {
-      // It was a draw
-      await supabase.from("notifications").insert([
-        {
-          user_id: lobby.challenger_id,
-          message: "The battle ended in a draw. No cards were exchanged.",
-          type: "battle_draw",
-          reference_id: lobby_id,
-        },
-        {
-          user_id: lobby.opponent_id,
-          message: "The battle ended in a draw. No cards were exchanged.",
-          type: "battle_draw",
-          reference_id: lobby_id,
-        },
-      ]);
+      // It's a tie, create detailed tie notifications
+      const { data: tieNotifData, error: tieNotifError } = await supabase
+        .from("notifications")
+        .insert([
+          {
+            user_id: battle.challenger_id,
+            message: `Draw! Your ${player1CardData.name} tied with opponent's ${player2CardData.name}. No cards were exchanged.`,
+            type: "battle_tie",
+            reference_id: battleId,
+            metadata: { 
+              player_card: player1CardData.name,
+              opponent_card: player2CardData.name
+            }
+          },
+          {
+            user_id: battle.opponent_id,
+            message: `Draw! Your ${player2CardData.name} tied with opponent's ${player1CardData.name}. No cards were exchanged.`,
+            type: "battle_tie",
+            reference_id: battleId,
+            metadata: { 
+              player_card: player2CardData.name,
+              opponent_card: player1CardData.name
+            }
+          },
+        ])
+        .select();
+        
+      if (tieNotifError) {
+        console.error("Error creating battle tie notifications:", tieNotifError);
+      } else {
+        console.log("Battle tie notifications created successfully:", tieNotifData);
+      }
     }
 
     // 7. Return the result
+    console.log("Battle resolution completed successfully");
+    
     return new Response(
       JSON.stringify({
         success: true,

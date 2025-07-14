@@ -38,13 +38,13 @@ export function ChallengeToastHandler() {
       // Navigate to the battle page using the new route
       router.push(`/game/arena/battle/${battleId}`);
     }
-  }, [supabase, toast]);
+  }, [supabase, toast, router]);
 
   const handleDecline = useCallback(async (battleId: string) => {
     await supabase.functions.invoke('decline-challenge', {
       body: { lobby_id: battleId }, // Keep lobby_id for backend compatibility
     });
-  }, [supabase, router]);
+  }, [supabase]);
 
   useEffect(() => {
     if (!user) return;

@@ -370,6 +370,42 @@ This document tracks the progress, issues, and solutions implemented during the 
 - Eliminated stuck battles and improved reliability
 - Better visibility into battle state transitions for debugging
 
+## Recent Updates (July 14, 2025)
+
+### 1. Battle Card Selection Edge Function Fixes
+
+**Problem**: Second player was unable to submit card selections in battles, receiving 400 Bad Request errors. Multiple issues were identified:
+
+1. **Database Schema Mismatch**: The Edge Function was validating players against incorrect column names.
+   - `battle_instances` table uses `challenger_id` and `opponent_id` for players
+   - `battle_selections` table uses `player1_id` and `player2_id` for the same players
+
+2. **Parameter Naming Inconsistency**: Different components were using different parameter names when calling the Edge Function:
+   - Some used `player_id` and `card_id` (new convention)
+   - Others used `user_id` and `selected_card_id` (old convention)
+
+3. **Card Ownership Verification Error**: The Edge Function was querying the wrong table with incorrect column names:
+   - Using `player_cards` table instead of `user_cards`
+   - Using `id` instead of `card_id` and `player_id` instead of `user_id`
+
+**Solution**:
+
+1. **Edge Function Updates**:
+   - Modified `select-card-v2` to accept both parameter naming conventions for backward compatibility
+   - Fixed player validation to check against `challenger_id` and `opponent_id` in `battle_instances`
+   - Corrected card ownership verification to use the `user_cards` table with proper column names
+   - Improved error handling for non-existent battle selection records
+
+2. **Frontend Component Updates**:
+   - Updated the lobby page to use the new Edge Function and parameter names
+   - Fixed console logging in CardSelectionGrid to match actual request parameters
+
+**Results**:
+- Both players can now successfully submit card selections
+- Improved error handling and logging for better debugging
+- Maintained backward compatibility with existing code
+- Eliminated 400 Bad Request errors for valid card submissions
+
 ## Next Steps
 
 1. Continue refining UI and gameplay features

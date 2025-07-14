@@ -93,10 +93,11 @@ export default function PreBattleRoomPage() {
     if (!user || !lobbyId) return;
     setIsSubmitting(true);
 
-    const { error } = await supabase.functions.invoke('select-card', {
+    const { error } = await supabase.functions.invoke('select-card-v2', {
       body: {
-        lobby_id: lobbyId,
-        player_card_id: card.id,
+        battle_id: lobbyId,
+        player_id: user.id,
+        card_id: card.id,
       },
     });
 

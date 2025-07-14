@@ -158,24 +158,32 @@ export function CardSelection({ lobby, playerCards: providedPlayerCards }: CardS
       // Use the new Edge Function to submit the card selection
       const selectedCard = selectedCards[0]; // We're only selecting one card now
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/select-card-v2`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          battle_id: lobby.id,
-          selected_card_id: selectedCard.id,
-          user_id: user.id
-        })
+      // Log the payload for debugging
+      console.table({
+        battle_id: lobby.id,
+        player_id: user.id,
+        card_id: selectedCard.id
       });
       
-      const result = await response.json();
+      // Use the Supabase SDK instead of raw fetch for proper auth handling
+      const { data: response, error } = await supabase.functions.invoke('select-card-v2', {
+        body: {
+          battle_id: lobby.id,
+          player_id: user.id,
+          card_id: selectedCard.id
+        }
+      });
       
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit card selection');
+      if (error) {
+        console.error('Edge Function error:', error);
+        throw new Error(error.message || 'Failed to select card');
       }
+      
+      // The response is already parsed when using supabase.functions.invoke
+      const result = response;
+      
+      // When using Supabase SDK, errors are already caught in the previous error check
+      // No need to check response.ok as it doesn't exist in the SDK response
       
       console.log('Card selection response:', result);
       

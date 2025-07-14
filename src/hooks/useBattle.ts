@@ -147,7 +147,7 @@ export const useBattle = (battleId: string) => {
     }
 
     // --- State Transition Logic ---
-    if (battleData.status === 'pending' && battleData.player1_id === session.user.id) {
+    if (battleData.status === 'pending' && battleData.challenger_id === session.user.id) {
       const { data: updatedBattle, error: updateError } = await supabase.from('battle_instances').update({ status: 'selecting' }).eq('id', battleId).select().single();
       if (updateError || !updatedBattle) {
         toast.error('Failed to start battle selection');
@@ -157,8 +157,8 @@ export const useBattle = (battleId: string) => {
       }
     }
 
-    if (battleData.status === 'pending' && battleData.player1_id !== session.user.id) {
-      const { data: updatedBattle, error: updateError } = await supabase.from('battle_instances').update({ player2_id: session.user.id, status: 'selecting' }).eq('id', battleId).select().single();
+    if (battleData.status === 'pending' && battleData.challenger_id !== session.user.id) {
+      const { data: updatedBattle, error: updateError } = await supabase.from('battle_instances').update({ opponent_id: session.user.id, status: 'selecting' }).eq('id', battleId).select().single();
       if (updateError || !updatedBattle) {
         toast.error('Failed to join battle');
       } else {

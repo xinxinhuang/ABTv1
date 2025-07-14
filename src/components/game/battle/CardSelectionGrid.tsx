@@ -12,7 +12,7 @@ const BATTLE_DECK_SIZE = 5;
 
 interface CardSelectionGridProps {
   battleId: string;
-  onSelectionConfirmed: () => void;
+  onSelectionConfirmed: (cardId: string) => void;
 }
 
 export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelectionGridProps) => {
@@ -88,15 +88,22 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
 
       console.log('Submitting card selection:', {
         battle_id: battleId,
-        selected_card_id: selectedCard,
-        user_id: user.id,
+        player_id: user.id,
+        card_id: selectedCard,
+      });
+      
+      // Log the payload for debugging
+      console.table({
+        battle_id: battleId,
+        player_id: user.id,
+        card_id: selectedCard
       });
       
       const response = await supabase.functions.invoke('select-card-v2', {
         body: {
           battle_id: battleId,
-          selected_card_id: selectedCard,
-          user_id: user.id,
+          player_id: user.id,
+          card_id: selectedCard
         },
       });
       
@@ -116,7 +123,9 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
 
       // If we got here, the submission was successful
       console.log('Card selection successful:', response.data);
-      onSelectionConfirmed();
+      if (selectedCard) {
+        onSelectionConfirmed(selectedCard);
+      }
     } catch (err: any) {
       setError(`Failed to submit card: ${err.message}`);
       console.error(err);
