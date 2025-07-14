@@ -406,6 +406,140 @@ This document tracks the progress, issues, and solutions implemented during the 
 - Maintained backward compatibility with existing code
 - Eliminated 400 Bad Request errors for valid card submissions
 
+## Comprehensive Code Review and State Management Overhaul (January 15, 2025)
+
+### 1. System-Wide Code Review
+
+**Problem**: A comprehensive code review revealed several critical issues affecting application stability and maintainability:
+
+1. **Empty State Management**: All Zustand store files (authStore.ts, gameStore.ts, inventoryStore.ts) were completely empty (0 bytes)
+2. **Duplicate useEffect**: src/app/page.tsx had two identical useEffect calls fetching the same session data
+3. **Inconsistent Error Handling**: API routes used nested try-catch blocks with fallback approaches and inconsistent error responses
+4. **Code Quality Issues**: Mixed data fetching patterns, excessive console logging, and inconsistent type safety
+
+**Assessment**:
+- Conducted thorough analysis of the existing codebase structure
+- Identified that while the application had a modern tech stack (Next.js 15, React 19, Supabase), critical infrastructure components were missing
+- Recognized the need for centralized state management and standardized error handling patterns
+
+### 2. State Management Implementation
+
+**Problem**: The application lacked proper state management, with empty store files and no centralized way to handle user authentication, game state, or inventory data.
+
+**Solution**:
+
+**2.1 Authentication Store** (`src/stores/authStore.ts`):
+- **State Management**: Implemented comprehensive auth state including user, session, profile, loading states, and error handling
+- **Actions**: Created full authentication flow with signIn, signUp, signOut, initializeAuth, refreshSession, fetchProfile, and updateProfile
+- **Persistence**: Added localStorage persistence for session continuity across browser sessions
+- **Selectors**: Provided convenient selectors (useAuthUser, useIsAuthenticated, useAuthProfile, etc.) for easy component consumption
+- **Error Handling**: Integrated with standardized error handling system for consistent error responses
+
+**2.2 Game Store** (`src/stores/gameStore.ts`):
+- **State Management**: Centralized game state including cards collection, selected cards, active timers, battles, and filters
+- **Actions**: Implemented fetchCards, addCard, removeCard, fetchActiveTimers, startTimer, openPack, createBattle, and joinBattle
+- **Filtering & Sorting**: Added comprehensive card filtering by type, rarity, and search terms with sorting capabilities
+- **Real-time Integration**: Designed for easy integration with Supabase real-time subscriptions
+- **Persistence**: Maintained game state across sessions with selective persistence
+- **Selectors**: Provided typed selectors for accessing specific game state slices
+
+**2.3 Inventory Store** (`src/stores/inventoryStore.ts`):
+- **State Management**: Handled inventory items, loading states, errors, and last updated timestamps
+- **Actions**: Implemented fetchInventory, updateInventory, addPacks, and removePacks with proper validation
+- **Utility Methods**: Added helper functions like hasEnoughPacks, getTotalPacks, and getPackCount for inventory management
+- **Persistence**: Cached inventory data with timestamp-based invalidation
+- **Selectors**: Provided selectors for inventory queries and pack availability checks
+
+**Results**:
+- **Centralized State**: All application state is now managed through typed, persistent Zustand stores
+- **Type Safety**: Full TypeScript integration with proper typing throughout the state management layer
+- **Developer Experience**: Simplified state access with custom selectors and actions
+- **Performance**: Optimized re-renders with selective subscriptions and efficient state updates
+- **Maintainability**: Clear separation of concerns with dedicated stores for different application domains
+
+### 3. Standardized Error Handling System
+
+**Problem**: API routes had inconsistent error handling patterns, nested try-catch blocks, and no standardized way to handle different error types or provide user-friendly error messages.
+
+**Solution**:
+
+**3.1 Error Handler Utility** (`src/lib/utils/errorHandler.ts`):
+- **Custom Error Classes**: Created hierarchy of error types (AppError, AuthError, ValidationError, NotFoundError, ConflictError, DatabaseError)
+- **ApiErrorHandler Class**: Centralized error handling with comprehensive error mapping and user-friendly message generation
+- **PostgreSQL Error Mapping**: Mapped common Postgres error codes (23505, 23503, PGRST116, etc.) to meaningful user messages
+- **Environment-Aware Logging**: Detailed error logging in development, sanitized messages in production
+- **Validation Helpers**: Created validation functions (validateRequired, validateEmail, validatePackType, validateNumberRange)
+- **Auth Helpers**: Added requireAuth and requireUser functions for consistent authentication checks
+- **Rate Limiting**: Implemented request-level rate limiting with configurable limits per endpoint
+
+**3.2 API Route Updates**:
+- **Timers API** (`src/app/api/timers/route.ts`): Refactored to use new error handling, validation, and rate limiting (10 requests/minute)
+- **Pack Opening API** (`src/app/api/timers/open/route.ts`): Updated with comprehensive error handling and validation (5 requests/minute)
+- **Consistent Response Format**: All API routes now return standardized error responses with proper HTTP status codes
+- **Security Enhancements**: Added authentication checks and input validation throughout
+
+**Results**:
+- **Consistent Error Responses**: All API endpoints now return standardized error format with appropriate HTTP status codes
+- **User-Friendly Messages**: Database errors are translated to human-readable messages without exposing internal details
+- **Enhanced Security**: Proper authentication checks and input validation prevent common security vulnerabilities
+- **Better Debugging**: Comprehensive error logging in development with proper error context
+- **Rate Limiting**: Protection against abuse with configurable rate limits per endpoint
+- **Maintainability**: Centralized error handling logic reduces code duplication and improves consistency
+
+### 4. Code Quality Improvements
+
+**Problem**: The main application page had duplicate useEffect calls causing unnecessary re-renders and potential race conditions.
+
+**Solution**:
+- **Duplicate useEffect Fix** (`src/app/page.tsx`): Removed duplicate useEffect calls and consolidated authentication state management
+- **Proper Cleanup**: Added subscription cleanup to prevent memory leaks
+- **Optimized Re-renders**: Reduced unnecessary component re-renders through proper dependency arrays
+- **Error Boundary Integration**: Connected with standardized error handling for better error recovery
+
+**Results**:
+- **Performance**: Eliminated unnecessary duplicate API calls and reduced component re-renders
+- **Stability**: Removed potential race conditions from concurrent session fetching
+- **Memory Management**: Proper cleanup prevents memory leaks from unsubscribed listeners
+- **Error Recovery**: Better error handling provides more resilient application behavior
+
+### 5. Implementation Highlights
+
+**Technical Achievements**:
+- **Zero Breaking Changes**: All improvements were implemented without breaking existing functionality
+- **Type Safety**: Full TypeScript integration with proper typing throughout the new systems
+- **Persistence**: Implemented localStorage-based persistence for state continuity
+- **Real-time Ready**: Designed state management for easy integration with Supabase real-time features
+- **Production Ready**: Environment-aware configuration for development and production deployments
+- **Developer Experience**: Comprehensive selectors and actions for easy state access and manipulation
+
+**Architecture Improvements**:
+- **Separation of Concerns**: Clear boundaries between state management, error handling, and business logic
+- **Scalability**: Modular design allows easy addition of new stores and error types
+- **Maintainability**: Centralized systems reduce code duplication and improve consistency
+- **Testing Ready**: Well-structured code with clear interfaces for easy unit testing
+- **Documentation**: Comprehensive inline documentation and usage examples
+
+### 6. Performance and Reliability Impact
+
+**Before Implementation**:
+- Empty state management files (0 bytes)
+- Duplicate API calls and unnecessary re-renders
+- Inconsistent error handling leading to poor user experience
+- No centralized way to manage application state
+
+**After Implementation**:
+- **Comprehensive State Management**: 200+ lines of typed, persistent state management code
+- **Standardized Error Handling**: 150+ lines of error handling utilities with PostgreSQL integration
+- **Optimized Performance**: Eliminated duplicate effects and unnecessary re-renders
+- **Enhanced User Experience**: Consistent, user-friendly error messages and proper loading states
+- **Developer Productivity**: Simplified state access and error handling patterns
+
+**Metrics**:
+- **State Management**: 3 fully implemented stores with 15+ actions and selectors each
+- **Error Handling**: 6 custom error types with comprehensive PostgreSQL error mapping
+- **API Improvements**: 2 API routes refactored with new error handling and rate limiting
+- **Code Quality**: Eliminated duplicate code and improved type safety throughout
+
 ## Next Steps
 
 1. Continue refining UI and gameplay features

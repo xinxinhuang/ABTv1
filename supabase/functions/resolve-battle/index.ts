@@ -266,7 +266,41 @@ serve(async (req: Request) => {
       }
     }
 
-    // 5. Update the battle instance with the result
+    // 5. Record the battle cards in the battle_cards table
+    console.log(`Recording battle cards in battle_cards table`);
+    
+    const { data: battleCardsData, error: battleCardsError } = await supabase
+      .from("battle_cards")
+      .insert([
+        {
+          battle_id: battleId,
+          player_id: battle.challenger_id,
+          card_id: challengerCardId,
+          card_name: player1CardData.name,
+          card_type: player1CardData.type,
+          card_attributes: player1CardData.attributes
+        },
+        {
+          battle_id: battleId,
+          player_id: battle.opponent_id,
+          card_id: opponentCardId,
+          card_name: player2CardData.name,
+          card_type: player2CardData.type,
+          card_attributes: player2CardData.attributes
+        }
+      ])
+      .select();
+      
+    if (battleCardsError) {
+      console.error("Error recording battle cards:", battleCardsError);
+      // Continue with the battle resolution even if recording fails
+      // We don't want to fail the entire battle just because this step failed
+      console.log("Continuing with battle resolution despite error recording battle cards");
+    } else {
+      console.log(`Successfully recorded battle cards:`, battleCardsData);
+    }
+    
+    // 6. Update the battle instance with the result
     console.log(`Battle winner determined: ${winnerId || 'Draw'}`);
     console.log(`Explanation: ${explanation}`);
     

@@ -38,6 +38,25 @@ serve(async (req: Request) => {
     // Create Supabase client with service role key (for admin privileges)
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    
+    // Log environment variable status (without revealing actual values)
+    console.log(`SUPABASE_URL available: ${!!supabaseUrl}`);
+    console.log(`SUPABASE_SERVICE_ROLE_KEY available: ${!!supabaseKey}`);
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing required environment variables");
+      return new Response(
+        JSON.stringify({ 
+          error: "Configuration error", 
+          message: "Server configuration is incomplete. Please contact support." 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Parse request body

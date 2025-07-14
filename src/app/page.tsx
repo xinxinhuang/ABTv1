@@ -15,16 +15,16 @@ export default function Home() {
     };
 
     fetchSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-    };
-
-    getSession();
-  }, []); // Removed supabase.auth from dependencies
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
