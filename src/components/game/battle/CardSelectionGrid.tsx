@@ -99,6 +99,9 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
         card_id: selectedCard
       });
       
+      // Set up a broadcast channel to notify other players
+      const broadcastChannel = supabase.channel(`battle-broadcast:${battleId}`);
+      
       const response = await supabase.functions.invoke('select-card-v2', {
         body: {
           battle_id: battleId,
@@ -123,6 +126,37 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
 
       // If we got here, the submission was successful
       console.log('Card selection successful:', response.data);
+      
+      // Broadcast the card submission to other players immediately
+      await broadcastChannel.send({
+        type: 'broadcast',
+        event: 'card_submitted',
+        payload: {
+          battle_id: battleId,
+          player_id: user.id,
+          card_id: selectedCard,
+          timestamp: new Date().toISOString(),
+          battle_status: response.data?.status || 'selecting'
+        }
+      });
+      
+      // If both players have submitted, broadcast battle update
+      if (response.data?.status === 'cards_revealed') {
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'battle_update',
+          payload: {
+            battle_id: battleId,
+            status: 'cards_revealed',
+            both_submitted: true,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
+      // Clean up the broadcast channel
+      await broadcastChannel.unsubscribe();
+      
       if (selectedCard) {
         onSelectionConfirmed(selectedCard);
       }

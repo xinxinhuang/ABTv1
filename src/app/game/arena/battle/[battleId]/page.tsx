@@ -26,6 +26,7 @@ export default function BattlePage() {
   const [playerHasSelectedCard, setPlayerHasSelectedCard] = useState(false);
   const [opponentHasSelectedCard, setOpponentHasSelectedCard] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
 
   // Determine if the current player has already submitted a card
   const hasPlayerSelected = useMemo(() => {
@@ -49,58 +50,279 @@ export default function BattlePage() {
     }
   }, [hasOpponentSelected]);
 
+  // Track last fetch attempts and failures to prevent rapid repeated fetches
+  const [lastFetchAttempt, setLastFetchAttempt] = useState<{ [key: string]: number }>({});
+  const [failedFetches, setFailedFetches] = useState<Set<string>>(new Set());
+  
   // Function to fetch card details when selections are made
   const fetchCardDetails = useCallback(async (selectionData: any) => {
     console.log('Fetching card details for selections:', selectionData);
     
+    if (!battle?.id) {
+      console.log('No battle ID available, skipping card fetch');
+      return;
+    }
+    
+    // Don't refetch if we already have both cards for a completed battle
+    if (battle.status === 'completed' && player1Card && player2Card) {
+      console.log('Battle is completed and we already have both cards, skipping fetch');
+      return;
+    }
+    
+    // Don't refetch if we already have both cards for an active battle
+    if (battle.status === 'active' && player1Card && player2Card) {
+      console.log('Battle is active and we already have both cards, skipping fetch');
+      return;
+    }
+    
+    // Rate limiting: don't fetch the same cards too frequently
+    const now = Date.now();
+    const cacheKey = `${battle.id}-${selectionData?.player1_card_id || ''}-${selectionData?.player2_card_id || ''}`;
+    if (lastFetchAttempt[cacheKey] && now - lastFetchAttempt[cacheKey] < 5000) {
+      console.log('Rate limiting: skipping fetch, too soon since last attempt');
+      return;
+    }
+    
+    setLastFetchAttempt(prev => ({ ...prev, [cacheKey]: now }));
+    
     try {
+      // First, try to fetch from battle_cards table (which stores historical data)
+      console.log('Attempting to fetch from battle_cards table for battle:', battle.id);
+      const { data: battleCards, error: battleCardsError } = await supabase
+        .from('battle_cards')
+        .select('*')
+        .eq('battle_id', battle.id);
+        
+      console.log('Battle cards query result:', { battleCards, battleCardsError });
+        
+      if (battleCards && battleCards.length > 0 && !battleCardsError) {
+        console.log('Found battle cards in battle_cards table:', battleCards);
+        
+        // Map battle cards to player 1 and player 2 based on player_id
+        const player1BattleCard = battleCards.find(card => card.player_id === battle.challenger_id);
+        const player2BattleCard = battleCards.find(card => card.player_id === battle.opponent_id);
+        
+        console.log('Player 1 battle card:', player1BattleCard);
+        console.log('Player 2 battle card:', player2BattleCard);
+        
+        if (player1BattleCard) {
+          const transformedCard = {
+            id: player1BattleCard.card_id,
+            player_id: player1BattleCard.player_id,
+            card_type: player1BattleCard.card_type,
+            card_name: player1BattleCard.card_name,
+            attributes: player1BattleCard.card_attributes,
+            rarity: 'unknown', // Not stored in battle_cards
+            obtained_at: player1BattleCard.created_at
+          };
+          setPlayer1Card(transformedCard);
+          console.log('Set player 1 card from battle_cards:', transformedCard);
+        }
+        
+        if (player2BattleCard) {
+          const transformedCard = {
+            id: player2BattleCard.card_id,
+            player_id: player2BattleCard.player_id,
+            card_type: player2BattleCard.card_type,
+            card_name: player2BattleCard.card_name,
+            attributes: player2BattleCard.card_attributes,
+            rarity: 'unknown', // Not stored in battle_cards
+            obtained_at: player2BattleCard.created_at
+          };
+          setPlayer2Card(transformedCard);
+          console.log('Set player 2 card from battle_cards:', transformedCard);
+        }
+        
+        // If we found both cards in battle_cards, we're done
+        if (player1BattleCard && player2BattleCard) {
+          console.log('Successfully loaded both cards from battle_cards table');
+          return;
+        }
+      } else {
+        console.log('No battle cards found in battle_cards table, will fallback to player_cards');
+      }
+      
+      // Fallback: try to fetch from player_cards table (for active battles)
+      console.log('Falling back to player_cards table for card details');
+      
+      // For completed battles, if battle_cards table is empty, we can't fetch the cards
+      // because they may have been transferred. Let's create placeholder cards with better info.
+      if (battle.status === 'completed') {
+        console.log('Battle is completed and battle_cards table is empty. Creating informed placeholder cards.');
+        
+        // Try to extract card information from battle explanation if available
+        const extractCardInfoFromExplanation = (explanation: string) => {
+          // Look for card type patterns in the explanation
+          const cardTypes = ['Space Marine', 'Galactic Ranger', 'Void Sorcerer'];
+          const foundType = cardTypes.find(type => explanation.includes(type));
+          return foundType || 'humanoid';
+        };
+        
+        const battleExplanation = battle.explanation || '';
+        console.log('Battle explanation:', battleExplanation);
+        
+        // Create more informative placeholder cards
+        if (selectionData.player1_card_id && !player1Card) {
+          const cardType = extractCardInfoFromExplanation(battleExplanation);
+          const placeholderCard = {
+            id: selectionData.player1_card_id,
+            player_id: battle.challenger_id,
+            card_type: cardType.toLowerCase().replace(' ', '_'),
+            card_name: `${cardType} (Challenger's Card)`,
+            attributes: { str: 0, dex: 0, int: 0 },
+            rarity: 'unknown',
+            obtained_at: new Date().toISOString()
+          };
+          setPlayer1Card(placeholderCard);
+          console.log('Set informed placeholder for player 1 card:', placeholderCard);
+        }
+        
+        if (selectionData.player2_card_id && !player2Card) {
+          const cardType = extractCardInfoFromExplanation(battleExplanation);
+          const placeholderCard = {
+            id: selectionData.player2_card_id,
+            player_id: battle.opponent_id,
+            card_type: cardType.toLowerCase().replace(' ', '_'),
+            card_name: `${cardType} (Opponent's Card)`,
+            attributes: { str: 0, dex: 0, int: 0 },
+            rarity: 'unknown',
+            obtained_at: new Date().toISOString()
+          };
+          setPlayer2Card(placeholderCard);
+          console.log('Set informed placeholder for player 2 card:', placeholderCard);
+        }
+        
+        return; // Don't try to fetch from player_cards for completed battles
+      }
+      
+      // Only try player_cards fallback for active battles
+      console.log('Battle is active, attempting to fetch from player_cards table');
+      
       // Fetch player 1 card details
-      if (selectionData.player1_card_id) {
-        const { data: player1CardData, error: player1CardError } = await supabase
-          .from('player_cards')
-          .select('*')
-          .eq('id', selectionData.player1_card_id)
-          .single();
-          
-        if (player1CardData && !player1CardError) {
-          const { data: cardData, error: cardError } = await supabase
-            .from('cards')
-            .select('*')
-            .eq('id', player1CardData.card_id)
-            .single();
-            
-          if (cardData && !cardError) {
-            console.log('Setting player 1 card:', cardData);
-            setPlayer1Card(cardData);
+      if (selectionData.player1_card_id && !player1Card) {
+        const card1FailKey = `card1-${selectionData.player1_card_id}`;
+        
+        // Skip if we recently failed to fetch this card
+        if (failedFetches.has(card1FailKey)) {
+          console.log('Skipping player 1 card fetch - recently failed');
+        } else {
+          try {
+            console.log('Fetching player 1 card with ID:', selectionData.player1_card_id);
+            const { data: player1CardData, error: player1CardError } = await supabase
+              .from('player_cards')
+              .select('*')
+              .eq('id', selectionData.player1_card_id)
+              .single();
+              
+            if (player1CardData && !player1CardError) {
+              console.log('Setting player 1 card from player_cards:', player1CardData);
+              const transformedCard = {
+                id: player1CardData.id,
+                player_id: player1CardData.player_id,
+                card_type: player1CardData.card_type,
+                card_name: player1CardData.card_name,
+                attributes: player1CardData.attributes,
+                rarity: player1CardData.rarity,
+                obtained_at: player1CardData.obtained_at
+              };
+              setPlayer1Card(transformedCard);
+              // Remove from failed fetches if it was there
+              setFailedFetches(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(card1FailKey);
+                return newSet;
+              });
+            } else {
+              console.warn('Could not fetch player 1 card from player_cards, may have been transferred');
+              // Mark as failed to prevent repeated attempts for 30 seconds
+              setFailedFetches(prev => new Set(prev).add(card1FailKey));
+              setTimeout(() => {
+                setFailedFetches(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(card1FailKey);
+                  return newSet;
+                });
+              }, 30000);
+            }
+          } catch (error) {
+            console.warn('Error fetching player 1 card from player_cards:', error);
+            // Mark as failed to prevent repeated attempts for 30 seconds
+            setFailedFetches(prev => new Set(prev).add(card1FailKey));
+            setTimeout(() => {
+              setFailedFetches(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(card1FailKey);
+                return newSet;
+              });
+            }, 30000);
           }
         }
       }
       
       // Fetch player 2 card details
-      if (selectionData.player2_card_id) {
-        const { data: player2CardData, error: player2CardError } = await supabase
-          .from('player_cards')
-          .select('*')
-          .eq('id', selectionData.player2_card_id)
-          .single();
-          
-        if (player2CardData && !player2CardError) {
-          const { data: cardData, error: cardError } = await supabase
-            .from('cards')
-            .select('*')
-            .eq('id', player2CardData.card_id)
-            .single();
+      if (selectionData.player2_card_id && !player2Card) {
+        const card2FailKey = `card2-${selectionData.player2_card_id}`;
+        
+        // Skip if we recently failed to fetch this card
+        if (failedFetches.has(card2FailKey)) {
+          console.log('Skipping player 2 card fetch - recently failed');
+        } else {
+          try {
+            console.log('Fetching player 2 card with ID:', selectionData.player2_card_id);
+            const { data: player2CardData, error: player2CardError } = await supabase
+              .from('player_cards')
+              .select('*')
+              .eq('id', selectionData.player2_card_id)
+              .single();
             
-          if (cardData && !cardError) {
-            console.log('Setting player 2 card:', cardData);
-            setPlayer2Card(cardData);
+          if (player2CardData && !player2CardError) {
+            console.log('Setting player 2 card from player_cards:', player2CardData);
+            const transformedCard = {
+              id: player2CardData.id,
+              player_id: player2CardData.player_id,
+              card_type: player2CardData.card_type,
+              card_name: player2CardData.card_name,
+              attributes: player2CardData.attributes,
+              rarity: player2CardData.rarity,
+              obtained_at: player2CardData.obtained_at
+            };
+            setPlayer2Card(transformedCard);
+            // Remove from failed fetches if it was there
+            setFailedFetches(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(card2FailKey);
+              return newSet;
+            });
+          } else {
+            console.warn('Could not fetch player 2 card from player_cards, may have been transferred');
+            // Mark as failed to prevent repeated attempts for 30 seconds
+            setFailedFetches(prev => new Set(prev).add(card2FailKey));
+            setTimeout(() => {
+              setFailedFetches(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(card2FailKey);
+                return newSet;
+              });
+            }, 30000);
           }
+        } catch (error) {
+          console.warn('Error fetching player 2 card from player_cards:', error);
+          // Mark as failed to prevent repeated attempts for 30 seconds
+          setFailedFetches(prev => new Set(prev).add(card2FailKey));
+          setTimeout(() => {
+            setFailedFetches(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(card2FailKey);
+              return newSet;
+            });
+          }, 30000);
         }
+      }
       }
     } catch (err) {
       console.error('Error fetching card details:', err);
     }
-  }, [supabase]);
+  }, [supabase, battle?.id, battle?.challenger_id, battle?.opponent_id, battle?.status, battle?.explanation, player1Card, player2Card, failedFetches]);
   
   const handleSelectionConfirmed = async (cardId: string) => {
     if (!user || !battle || !cardId) return;
@@ -220,7 +442,12 @@ export default function BattlePage() {
         }
         
         // Use the fetchCardDetails function to get card information
-        await fetchCardDetails(selectionData);
+        // Only fetch card details if we don't have both cards yet
+        if (!player1Card || !player2Card) {
+          await fetchCardDetails(selectionData);
+        } else {
+          console.log('Already have both cards, skipping card details fetch');
+        }
       } else {
         console.warn('No selection data found - this may indicate a database issue');
         setSelection(null);
@@ -292,113 +519,139 @@ export default function BattlePage() {
     if (!battleId || !user) return;
     fetchBattleData();
 
-    // Set up a single channel for all battle-related subscriptions
+    // Set up a simplified real-time channel for battle updates
     const battleChannel = supabase
-      .channel(`battle-page:${battleId}`)
+      .channel(`battle-realtime:${battleId}`, {
+        config: {
+          presence: {
+            key: user.id,
+          },
+        },
+      })
+      .on('presence', { event: 'sync' }, async () => {
+        console.log('Battle presence sync - refreshing battle data');
+        await fetchBattleData(true);
+      })
+      .on('broadcast', { event: 'card_submitted' }, async (payload) => {
+        console.log('Card submitted broadcast received:', payload);
+        // Immediately refresh battle data when someone submits a card
+        await fetchBattleData(true);
+      })
+      .on('broadcast', { event: 'battle_update' }, async (payload) => {
+        console.log('Battle update broadcast received:', payload);
+        // Immediately refresh battle data when battle updates
+        await fetchBattleData(true);
+      })
+      .subscribe(async (status: string) => {
+        console.log(`Battle presence subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          // Track this user's presence in the battle
+          await battleChannel.track({
+            user_id: user.id,
+            status: 'in_battle',
+            last_seen: new Date().toISOString(),
+          });
+        }
+      });
+
+    // Set up intelligent polling - more frequent during active phases, less frequent during waiting
+    const pollInterval = setInterval(async () => {
+      if (battle?.status === 'active' || battle?.status === 'cards_revealed') {
+        // Only poll if we don't have both cards yet
+        if (!player1Card || !player2Card) {
+          console.log('Polling for battle updates during active phase...');
+          await fetchBattleData(true);
+        } else {
+          console.log('Already have both cards, skipping poll');
+        }
+      } else if (battle?.status === 'completed') {
+        console.log('Battle completed, stopping polling');
+        clearInterval(pollInterval);
+      }
+    }, 5000); // Poll every 5 seconds during active phases (reduced from 2 seconds)
+
+    // Database subscription for critical battle updates
+    const dbChannel = supabase
+      .channel(`battle-db:${battleId}`)
       .on('postgres_changes', {
-        event: 'UPDATE', // Only listen for update events, not inserts or deletes
-        schema: 'public',
+        event: 'UPDATE',
+        schema: 'public', 
         table: 'battle_instances',
         filter: `id=eq.${battleId}`,
       }, async (payload) => {
-        console.log('Battle instance updated:', payload.new);
+        console.log('Database battle update:', payload.new);
         const newBattleData = payload.new as BattleInstance;
-        
-        // Make sure to update the battle state when status changes
         setBattle(newBattleData);
         
-        // Log the status change clearly for debugging
+        // Immediately refresh full data when battle status changes
         console.log(`Battle status changed to: ${newBattleData.status}`);
+        await fetchBattleData(true);
         
-        // If status changed to cards_revealed, make sure we have the card details
-        if (newBattleData.status === 'cards_revealed') {
-          console.log('Status changed to cards_revealed, ensuring we have card details');
-          
-          // Fetch the latest selection data to ensure we have the most up-to-date information
-          const { data: latestSelection } = await supabase
-            .from('battle_selections')
-            .select('*')
-            .eq('battle_id', battleId)
-            .single();
-            
-          if (latestSelection) {
-            console.log('Fetched latest selection data:', latestSelection);
-            setSelection(latestSelection);
-            
-            // Make sure we have the card details
-            await fetchCardDetails(latestSelection);
+        // Broadcast to other players
+        await battleChannel.send({
+          type: 'broadcast',
+          event: 'battle_update',
+          payload: { 
+            battle_id: battleId,
+            new_status: newBattleData.status,
+            updated_at: new Date().toISOString()
           }
-        }
+        });
       })
-      .on('postgres_changes', { 
-        event: '*', // Listen for INSERT and UPDATE
+      .on('postgres_changes', {
+        event: '*',
         schema: 'public',
-        table: 'battle_selections',
+        table: 'battle_selections', 
         filter: `battle_id=eq.${battleId}`
       }, async (payload) => {
-        console.log('Battle selections updated:', payload.new);
-        
-        // Get the updated selection data
+        console.log('Database selection update:', payload.new);
         const data = payload.new as any;
-        
         if (!data) return;
         
-        console.log('Received battle selection data:', data);
         setSelection(data);
         
-        // Check if both players have submitted their cards
-        const bothSubmitted = data.player1_card_id && data.player2_card_id;
-        
-        // Update player's selection status
-        if (user) {
-          const isChallenger = user.id === battle?.challenger_id;
+        // Update player selection status immediately
+        if (user && battle) {
+          const isChallenger = user.id === battle.challenger_id;
           const hasSelected = isChallenger ? !!data.player1_card_id : !!data.player2_card_id;
           const opponentSelected = isChallenger ? !!data.player2_card_id : !!data.player1_card_id;
           
-          console.log(`Player selection status: ${hasSelected ? 'selected' : 'not selected'}`);
-          console.log(`Opponent selection status: ${opponentSelected ? 'selected' : 'not selected'}`);
-          
+          console.log(`Selection update - Player: ${hasSelected}, Opponent: ${opponentSelected}`);
           setPlayerHasSelectedCard(hasSelected);
           setOpponentHasSelectedCard(opponentSelected);
           
-          // Update timestamp when opponent selects
           if (opponentSelected) {
             setLastUpdateTime(new Date().toLocaleTimeString());
           }
         }
         
-        // Fetch card details immediately
-        fetchCardDetails(data);
+        // Fetch card details
+        await fetchCardDetails(data);
         
-        // If both players have submitted cards, refresh battle instance to get updated status
+        // If both players submitted, broadcast update
+        const bothSubmitted = data.player1_card_id && data.player2_card_id;
         if (bothSubmitted) {
-          console.log('Both players have submitted cards, refreshing battle status...');
-          
-          // Also refresh battle instance to make sure we have the latest status
-          const { data: refreshedBattle } = await supabase
-            .from('battle_instances')
-            .select('*')
-            .eq('id', battleId)
-            .single();
-            
-          if (refreshedBattle) {
-            console.log(`Refreshed battle status: ${refreshedBattle.status}`);
-            // Force UI update by setting battle state directly
-            setBattle(refreshedBattle);
-          }
+          console.log('Both players submitted - broadcasting card_submitted event');
+          await battleChannel.send({
+            type: 'broadcast',
+            event: 'card_submitted',
+            payload: { 
+              battle_id: battleId,
+              both_submitted: true,
+              submitted_at: new Date().toISOString()
+            }
+          });
         }
-        
-        // We already called fetchCardDetails earlier, no need to duplicate
       })
-      .subscribe(async (status) => {
-        console.log(`Subscribed to battle selections channel: ${status}`);
-      });
+      .subscribe();
 
     return () => {
-      console.log('Unsubscribing from battle channel');
+      console.log('Cleaning up battle subscriptions');
+      clearInterval(pollInterval);
       supabase.removeChannel(battleChannel);
+      supabase.removeChannel(dbChannel);
     };
-  }, [battleId, user, supabase, battle?.challenger_id, fetchCardDetails, fetchBattleData]);
+  }, [battleId, user, supabase, fetchCardDetails, fetchBattleData, battle?.challenger_id, battle?.status]);
   
   // We no longer need to trigger battle resolution from the client side
   // The Postgres database trigger automatically calls the resolve-battle Edge Function
@@ -424,7 +677,29 @@ export default function BattlePage() {
     return isChallenger ? !!selection.player1_card_id : !!selection.player2_card_id;
   }, [selection, user, battle]);
 
-  // Auto-resolve battle when both players have submitted cards
+  // Countdown timer for cards_revealed phase
+  useEffect(() => {
+    if (battle?.status === 'cards_revealed') {
+      console.log('Starting countdown for cards_revealed phase');
+      setCountdownSeconds(4); // 4 second countdown
+      
+      const countdownInterval = setInterval(() => {
+        setCountdownSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(countdownInterval);
+    } else {
+      setCountdownSeconds(0);
+    }
+  }, [battle?.status]);
+
+  // Auto-resolve battle when both players have submitted cards - with proper delay for cards_revealed phase
   useEffect(() => {
     const autoResolveBattle = async () => {
       console.log('Auto-resolve check triggered');
@@ -451,9 +726,32 @@ export default function BattlePage() {
       
       // Only try to resolve if battle is still in cards_revealed state
       if (battle.status === 'cards_revealed') {
-        console.log('✅ Both players have submitted cards and battle is cards_revealed, calling resolve-battle-v2...');
+        console.log('✅ Both players have submitted cards and battle is cards_revealed');
+        console.log('⏱️ Waiting 4 seconds to allow players to see the revealed cards...');
         
+        // Wait 4 seconds to allow players to see the revealed cards
+        await new Promise(resolve => setTimeout(resolve, 4000));
+        
+        // Double-check the battle is still in cards_revealed state after the delay
         try {
+          const { data: currentBattle, error: battleCheckError } = await supabase
+            .from('battle_instances')
+            .select('status')
+            .eq('id', battle.id)
+            .single();
+            
+          if (battleCheckError || !currentBattle) {
+            console.error('Error checking battle status:', battleCheckError);
+            return;
+          }
+          
+          if (currentBattle.status !== 'cards_revealed') {
+            console.log(`Battle status changed to ${currentBattle.status}, skipping resolution`);
+            return;
+          }
+          
+          console.log('🎯 Now calling resolve-battle-v2 after delay...');
+          
           const { data, error } = await supabase.functions.invoke('resolve-battle-v2', {
             body: { battle_id: battle.id }
           });
@@ -489,14 +787,13 @@ export default function BattlePage() {
       }
     };
     
-    // Check immediately without delay for faster response
-    autoResolveBattle();
+    // Only trigger auto-resolve if we're in the right state
+    if (battle?.status === 'cards_revealed' && selection?.player1_card_id && selection?.player2_card_id) {
+      console.log('🚀 Starting delayed auto-resolve process...');
+      autoResolveBattle();
+    }
     
-    // Also check after a delay to catch any race conditions
-    const timeoutId = setTimeout(autoResolveBattle, 500);
-    
-    return () => clearTimeout(timeoutId);
-  }, [battle, selection, supabase]);
+  }, [battle?.status, selection?.player1_card_id, selection?.player2_card_id, battle?.id, supabase]);
 
   const renderContent = () => {
     if (loading) {
@@ -536,36 +833,14 @@ export default function BattlePage() {
           <div className="text-center p-8">
             <Loader2 className="mx-auto h-12 w-12 animate-spin" />
             <h2 className="text-2xl font-bold mt-4">Both Players Ready!</h2>
-            <p className="text-gray-400">Preparing to reveal cards...</p>
+            <p className="text-gray-400">Cards will be revealed momentarily...</p>
             <div className="mt-4 space-y-2">
               <p className="text-green-400">✓ You have selected your card</p>
               <p className="text-green-400">✓ Opponent has selected their card</p>
-              <p className="text-yellow-400">Battle starting...</p>
+              <p className="text-yellow-400">⏳ Waiting for battle to start...</p>
             </div>
             
-            {/* Manual trigger button for debugging */}
-            <div className="mt-6">
-              <button
-                onClick={() => {
-                  console.log('Manual battle resolution triggered');
-                  if (battle.id) {
-                    supabase.functions.invoke('resolve-battle-v2', {
-                      body: { battle_id: battle.id }
-                    })
-                    .then(({ data, error }) => {
-                      if (error) {
-                        console.error('Manual resolution error:', error);
-                      } else {
-                        console.log('Manual resolution success:', data);
-                      }
-                    });
-                  }
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-              >
-                Manual Resolve (Debug)
-              </button>
-            </div>
+            {/* Remove the manual trigger button since we have proper auto-resolve now */}
           </div>
         );
       }
@@ -590,29 +865,113 @@ export default function BattlePage() {
     // Phase 2: Cards Revealed - Show the reveal animation
     console.log(`Rendering content for battle status: ${battle.status}`);
     if (battle.status === 'cards_revealed') {
-      console.log('Rendering BattleGrid for cards_revealed state');
-      return <BattleGrid 
-        battle={battle} 
-        player1Card={player1Card} 
-        player2Card={player2Card} 
-        onResolveBattle={() => { 
-          // Explicitly call the resolve-battle-v2 function to ensure battle_cards are updated
-          console.log('Explicitly calling resolve-battle-v2 to ensure battle_cards are updated');
+      console.log('Rendering cards_revealed state with both cards');
+      return (
+        <div className="text-center p-8 space-y-6">
+          <div className="bg-yellow-900/20 border border-yellow-500 rounded-lg p-6 animate-pulse">
+            <h2 className="text-3xl font-bold text-yellow-400 mb-2">⚔️ Cards Revealed!</h2>
+            <p className="text-gray-300">Both players have chosen their cards</p>
+            <div className="mt-4 text-yellow-400">
+              {countdownSeconds > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-2xl font-bold animate-bounce">{countdownSeconds}</div>
+                  <p className="text-sm">Battle resolving in {countdownSeconds} second{countdownSeconds !== 1 ? 's' : ''}...</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                  <p className="text-sm">Resolving battle now...</p>
+                </div>
+              )}
+            </div>
+          </div>
           
-          if (battle.id) {
-            supabase.functions.invoke('resolve-battle-v2', {
-              body: { battle_id: battle.id }
-            })
-            .then(({ data, error }) => {
-              if (error) {
-                console.error('Error resolving battle:', error);
-                return;
-              }
-              console.log('Battle resolved successfully:', data);
-            });
-          }
-        }} 
-      />;
+          <div className="grid grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Determine which card belongs to current user */}
+            {(() => {
+              const isChallenger = user?.id === battle.challenger_id;
+              const currentUserCard = isChallenger ? player1Card : player2Card;
+              const opponentCard = isChallenger ? player2Card : player1Card;
+              
+              return (
+                <>
+                  {/* Current User's Card */}
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold mb-4 text-blue-400">Your Card</h3>
+                                          {currentUserCard ? (
+                        <div className="bg-gray-800 p-6 rounded-lg border-2 border-blue-500 transform transition-all duration-500 hover:scale-105 animate-fadeIn">
+                          <h4 className="text-xl font-bold text-blue-400 mb-2">{currentUserCard.card_name}</h4>
+                          <p className="text-sm text-gray-400 mb-2">{currentUserCard.card_type}</p>
+                          <p className="text-sm text-gray-400 mb-4">{currentUserCard.rarity}</p>
+                          {currentUserCard.rarity === 'unknown' && currentUserCard.card_name.includes('(') ? (
+                            <p className="text-xs text-yellow-400 mb-2">ⓘ Card transferred - showing battle info</p>
+                          ) : null}
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span>STR:</span>
+                              <span className="font-bold">{currentUserCard.attributes?.str || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>DEX:</span>
+                              <span className="font-bold">{currentUserCard.attributes?.dex || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>INT:</span>
+                              <span className="font-bold">{currentUserCard.attributes?.int || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-800 p-6 rounded-lg border-2 border-blue-500 animate-pulse">
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-blue-400" />
+                          <p className="text-gray-400 mt-2">Loading card...</p>
+                        </div>
+                      )}
+                  </div>
+                  
+                  {/* Opponent's Card */}
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold mb-4 text-red-400">Opponent's Card</h3>
+                                          {opponentCard ? (
+                        <div className="bg-gray-800 p-6 rounded-lg border-2 border-red-500 transform transition-all duration-500 hover:scale-105 animate-fadeIn animation-delay-200">
+                          <h4 className="text-xl font-bold text-red-400 mb-2">{opponentCard.card_name}</h4>
+                          <p className="text-sm text-gray-400 mb-2">{opponentCard.card_type}</p>
+                          <p className="text-sm text-gray-400 mb-4">{opponentCard.rarity}</p>
+                          {opponentCard.rarity === 'unknown' && opponentCard.card_name.includes('(') ? (
+                            <p className="text-xs text-yellow-400 mb-2">ⓘ Card transferred - showing battle info</p>
+                          ) : null}
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span>STR:</span>
+                              <span className="font-bold">{opponentCard.attributes?.str || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>DEX:</span>
+                              <span className="font-bold">{opponentCard.attributes?.dex || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>INT:</span>
+                              <span className="font-bold">{opponentCard.attributes?.int || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-800 p-6 rounded-lg border-2 border-red-500 animate-pulse">
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-red-400" />
+                          <p className="text-gray-400 mt-2">Loading card...</p>
+                        </div>
+                      )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+          
+          <div className="text-center">
+            <p className="text-gray-400 text-sm">Determining winner...</p>
+          </div>
+        </div>
+      );
     }
     
     // Phase 3: Battle In Progress
@@ -663,47 +1022,64 @@ export default function BattlePage() {
             )}
             
             <div className="grid grid-cols-2 gap-8 max-w-2xl mx-auto mt-6">
-              {/* Player 1 Card */}
-              <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">Challenger's Card</h3>
-                {player1Card ? (
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                    <h4 className="font-bold text-blue-400">{player1Card.name}</h4>
-                    <p className="text-sm text-gray-400">{player1Card.type}</p>
-                    <p className="text-sm text-gray-400">{player1Card.rarity}</p>
-                    <div className="mt-2 text-sm">
-                      <div>STR: {player1Card.attributes?.str || 0}</div>
-                      <div>DEX: {player1Card.attributes?.dex || 0}</div>
-                      <div>INT: {player1Card.attributes?.int || 0}</div>
+              {/* Determine which card belongs to current user for completed battle */}
+              {(() => {
+                const isChallenger = user?.id === battle.challenger_id;
+                const currentUserCard = isChallenger ? player1Card : player2Card;
+                const opponentCard = isChallenger ? player2Card : player1Card;
+                
+                return (
+                  <>
+                    {/* Current User's Card */}
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold mb-2">Your Card</h3>
+                                             {currentUserCard ? (
+                         <div className="bg-gray-800 p-4 rounded-lg">
+                           <h4 className="font-bold text-blue-400">{currentUserCard.card_name}</h4>
+                           <p className="text-sm text-gray-400">{currentUserCard.card_type}</p>
+                           <p className="text-sm text-gray-400">{currentUserCard.rarity}</p>
+                           {currentUserCard.rarity === 'unknown' && currentUserCard.card_name.includes('(') ? (
+                             <p className="text-xs text-yellow-400 mt-1">ⓘ Card transferred - showing battle info</p>
+                           ) : null}
+                           <div className="mt-2 text-sm">
+                             <div>STR: {currentUserCard.attributes?.str || 0}</div>
+                             <div>DEX: {currentUserCard.attributes?.dex || 0}</div>
+                             <div>INT: {currentUserCard.attributes?.int || 0}</div>
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="bg-gray-800 p-4 rounded-lg">
+                           <p className="text-gray-400">Card data unavailable</p>
+                         </div>
+                       )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                    <p className="text-gray-400">Card data unavailable</p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Player 2 Card */}
-              <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">Opponent's Card</h3>
-                {player2Card ? (
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                    <h4 className="font-bold text-blue-400">{player2Card.name}</h4>
-                    <p className="text-sm text-gray-400">{player2Card.type}</p>
-                    <p className="text-sm text-gray-400">{player2Card.rarity}</p>
-                    <div className="mt-2 text-sm">
-                      <div>STR: {player2Card.attributes?.str || 0}</div>
-                      <div>DEX: {player2Card.attributes?.dex || 0}</div>
-                      <div>INT: {player2Card.attributes?.int || 0}</div>
+                    
+                    {/* Opponent's Card */}
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold mb-2">Opponent's Card</h3>
+                                             {opponentCard ? (
+                         <div className="bg-gray-800 p-4 rounded-lg">
+                           <h4 className="font-bold text-red-400">{opponentCard.card_name}</h4>
+                           <p className="text-sm text-gray-400">{opponentCard.card_type}</p>
+                           <p className="text-sm text-gray-400">{opponentCard.rarity}</p>
+                           {opponentCard.rarity === 'unknown' && opponentCard.card_name.includes('(') ? (
+                             <p className="text-xs text-yellow-400 mt-1">ⓘ Card transferred - showing battle info</p>
+                           ) : null}
+                           <div className="mt-2 text-sm">
+                             <div>STR: {opponentCard.attributes?.str || 0}</div>
+                             <div>DEX: {opponentCard.attributes?.dex || 0}</div>
+                             <div>INT: {opponentCard.attributes?.int || 0}</div>
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="bg-gray-800 p-4 rounded-lg">
+                           <p className="text-gray-400">Card data unavailable</p>
+                         </div>
+                       )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                    <p className="text-gray-400">Card data unavailable</p>
-                  </div>
-                )}
-              </div>
+                  </>
+                );
+              })()}
             </div>
             
             <div className="mt-6 space-y-4">
