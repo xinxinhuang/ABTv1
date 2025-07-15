@@ -38,17 +38,19 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">My Card Inventory</h1>
-      {cards.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {cards.map(card => (
-            <CardDisplay key={card.id} card={card} />
-          ))}
-        </div>
-      ) : (
-        <p className="text-center text-gray-500">You don't have any cards yet. Open some packs to get started!</p>
-      )}
+    <div className="content-height">
+      <div className="container mx-auto p-4">
+        <h1 className="text-3xl font-bold mb-6">My Card Inventory</h1>
+        {cards.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {cards.map(card => (
+              <CardDisplay key={card.id} card={card} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-gray-500">You don't have any cards yet. Open some packs to get started!</p>
+        )}
+      </div>
     </div>
   );
 }

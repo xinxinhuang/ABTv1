@@ -36,9 +36,11 @@ export default async function CollectionPage() {
   const cards = await getCards(supabase, session.user.id);
 
   return (
-    <div className="container mx-auto p-4">
-      <CollectionHeader title="My Card Collection" />
-      <CardCollection initialCards={cards} />
+    <div className="content-height">
+      <div className="container mx-auto p-4">
+        <CollectionHeader title="My Card Collection" />
+        <CardCollection initialCards={cards} />
+      </div>
     </div>
   );
 }

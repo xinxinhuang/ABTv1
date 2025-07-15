@@ -1,81 +1,52 @@
 'use client';
 
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase/client';
-import { useEffect, useState } from 'react';
-import { Session } from '@supabase/supabase-js';
+import { SparklesText } from '@/components/ui/sparkles-text';
+import { useUser } from '@/hooks/useUser';
 
 export default function Home() {
-  const [session, setSession] = useState<Session | null>(null);
-  
-  useEffect(() => {
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-    };
-
-    fetchSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user } = useUser();
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-            Booster Game
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-300 mb-12">
-            Collect, trade, and battle with unique digital cards
-          </p>
-          
-          {session ? (
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
-                href="/game/packs"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
-              >
-                Go to Packs
-              </Link>
-              <Link 
-                href="/game/collection"
-                className="bg-transparent hover:bg-white/10 border-2 border-white text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
-              >
-                View Collection
-              </Link>
-              <Link 
-                href="/game/arena/lobby"
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
-              >
-                Battle Arena
-              </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
-                href="/login"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link 
-                href="/signup"
-                className="bg-transparent hover:bg-white/10 border-2 border-white text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
-              >
-                Create Account
-              </Link>
-            </div>
-          )}
-        </div>
+    <div className="content-height flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--mantine-color-dark-7)' }}>
+      <div className="text-center space-y-8">
+        {/* SparklesText Title */}
+        <SparklesText 
+          text="A Boring TCG"
+          colors={{ first: '#ffd43b', second: '#fab005' }}
+          className="text-4xl md:text-6xl lg:text-8xl font-bold mb-8"
+          sparklesCount={15}
+        />
+        
+        {/* Subtitle */}
+        <p className="text-xl md:text-2xl text-white max-w-2xl mx-auto mb-12">
+          Collect, trade, and battle with unique digital cards
+        </p>
+        
+        {/* Action Buttons */}
+        {!user && (
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/login"
+              className="mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root mantine-button-default text-lg"
+              style={{ minWidth: '160px', padding: '0.75rem 2rem' }}
+            >
+              <span className="mantine-Button-inner">
+                <span className="mantine-Button-label">Sign In</span>
+              </span>
+            </Link>
+            <Link
+              href="/signup"
+              className="mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root mantine-button-primary text-lg"
+              style={{ minWidth: '160px', padding: '0.75rem 2rem' }}
+            >
+              <span className="mantine-Button-inner">
+                <span className="mantine-Button-label">Create Account</span>
+              </span>
+            </Link>
+          </div>
+        )}
       </div>
-    </main>
+    </div>
   );
 }

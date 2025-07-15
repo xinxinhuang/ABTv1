@@ -1,44 +1,234 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Mantine UI inspired colors - Light theme */
+  --background: 248 250 252;
+  --foreground: 30 41 59;
+  --card: 255 255 255;
+  --card-foreground: 30 41 59;
+  --popover: 255 255 255;
+  --popover-foreground: 30 41 59;
+  --primary: 244 208 63;
+  --primary-foreground: 30 41 59;
+  --secondary: 100 116 139;
+  --secondary-foreground: 255 255 255;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
+  --accent: 249 115 22;
+  --accent-foreground: 255 255 255;
+  --destructive: 239 68 68;
+  --destructive-foreground: 248 250 252;
+  --border: 226 232 240;
+  --input: 226 232 240;
+  --ring: 244 208 63;
+  --radius: 0.375rem;
+  
+  /* Mantine UI specific colors */
+  --mantine-yellow: 244 208 63;
+  --mantine-yellow-light: 254 249 195;
+  --mantine-yellow-dark: 212 180 41;
+  --mantine-grey: 100 116 139;
+  --mantine-grey-light: 241 245 249;
+  --mantine-grey-dark: 51 65 85;
+  --mantine-white: 255 255 255;
+  --mantine-black: 30 41 59;
+  --mantine-border: 226 232 240;
+  --mantine-background: 248 250 252;
+  
+  /* Mantine UI exact color tokens */
+  --mantine-color-white: #ffffff;
+  --mantine-color-dark-7: #1a1b1e;
+  --mantine-color-dark-6: #2c2e33;
+  --mantine-color-dark-5: #373a40;
+  --mantine-color-dark-4: #424347;
+  --mantine-color-dark-3: #909296;
+  --mantine-color-dark-2: #a6a7ab;
+  --mantine-color-dark-1: #c1c2c5;
+  --mantine-color-dark-0: #d0d1d5;
+  --mantine-color-gray-0: #f8f9fa;
+  --mantine-color-gray-1: #f1f3f4;
+  --mantine-color-gray-2: #e9ecef;
+  --mantine-color-gray-3: #dee2e6;
+  --mantine-color-gray-4: #ced4da;
+  --mantine-color-gray-5: #adb5bd;
+  --mantine-color-gray-6: #868e96;
+  --mantine-color-gray-7: #495057;
+  --mantine-color-gray-8: #343a40;
+  --mantine-color-gray-9: #212529;
+  --mantine-color-yellow-0: #fff9db;
+  --mantine-color-yellow-1: #fff3bf;
+  --mantine-color-yellow-2: #ffec99;
+  --mantine-color-yellow-3: #ffe066;
+  --mantine-color-yellow-4: #ffd43b;
+  --mantine-color-yellow-5: #fcc419;
+  --mantine-color-yellow-6: #fab005;
+  --mantine-color-yellow-7: #f59f00;
+  --mantine-color-yellow-8: #f08c00;
+  --mantine-color-yellow-9: #e67700;
+  
+  /* Mantine UI font family */
+  --mantine-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  
+  /* Game-specific colors */
+  --game-primary: 244 208 63;
+  --game-secondary: 100 116 139;
+  --game-accent: 249 115 22;
+  --game-success: 34 197 94;
+  --game-warning: 245 158 11;
+  --game-danger: 239 68 68;
+  
+  /* Card rarity colors */
+  --rarity-common: 148 163 184;
+  --rarity-uncommon: 100 116 139;
+  --rarity-rare: 244 208 63;
+  --rarity-epic: 234 88 12;
+  --rarity-legendary: 250 204 21;
+  
+  /* Layout variables */
+  --nav-height: 3.5rem;
+  --sidebar-width: 16rem;
+  --header-blur: blur(8px);
+  
+  /* Animation variables */
+  --animation-fast: 100ms;
+  --animation-normal: 200ms;
+  --animation-slow: 300ms;
+  --animation-slower: 500ms;
+  
+  /* Mantine UI shadows */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-focus: 0 0 0 2px rgba(244, 208, 63, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Mantine UI inspired colors - Dark theme */
+    --background: 30 41 59;
+    --foreground: 248 250 252;
+    --card: 51 65 85;
+    --card-foreground: 248 250 252;
+    --popover: 51 65 85;
+    --popover-foreground: 248 250 252;
+    --primary: 244 208 63;
+    --primary-foreground: 30 41 59;
+    --secondary: 148 163 184;
+    --secondary-foreground: 30 41 59;
+    --muted: 71 85 105;
+    --muted-foreground: 148 163 184;
+    --accent: 251 146 60;
+    --accent-foreground: 30 41 59;
+    --destructive: 248 113 113;
+    --destructive-foreground: 30 41 59;
+    --border: 71 85 105;
+    --input: 71 85 105;
+    --ring: 244 208 63;
+    
+    /* Update Mantine colors for dark theme */
+    --mantine-background: 30 41 59;
+    --mantine-grey-light: 71 85 105;
+    --mantine-border: 71 85 105;
+    
+    /* Mantine UI exact color tokens remain the same in dark mode */
+    --mantine-color-white: #ffffff;
+    --mantine-color-dark-7: #1a1b1e;
+    --mantine-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
 }
 
-/* Fix for input text color - ensures better contrast against white backgrounds */
-input[type="email"],
-input[type="password"],
-input[type="text"] {
-  color: #1a202c !important; /* Dark gray, almost black text */
+/* Base styles - Mantine UI inspired */
+* {
+  box-sizing: border-box;
 }
 
-/* Ensure placeholder text remains visible but distinct */
-::placeholder {
-  color: #718096 !important; /* Medium gray for placeholders */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--mantine-font-family);
+  background: var(--mantine-color-dark-7);
+  color: var(--mantine-color-white);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
 }
 
-/* Custom animations for battle cards */
+/* Improved input styling - Mantine style */
+input[type="email"],
+input[type="password"],
+input[type="text"],
+input[type="number"],
+textarea {
+  color: rgb(var(--foreground)) !important;
+  background: rgb(var(--card)) !important;
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  transition: all var(--animation-normal) ease;
+  box-shadow: var(--shadow-xs);
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: rgb(var(--ring));
+  box-shadow: var(--shadow-focus);
+}
+
+::placeholder {
+  color: rgb(var(--muted-foreground)) !important;
+}
+
+/* Selection styling - Mantine style */
+::selection {
+  background: rgba(var(--primary), 0.2);
+  color: rgb(var(--primary-foreground));
+}
+
+/* Scrollbar styling - Mantine style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--muted-foreground));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--foreground));
+}
+
+/* Mantine UI inspired animations */
 @keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -49,10 +239,473 @@ body {
   }
 }
 
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40%, 43% {
+    transform: translateY(-8px);
+  }
+  70% {
+    transform: translateY(-4px);
+  }
+  90% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Animation utility classes - Mantine style */
 .animate-fadeIn {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn var(--animation-normal) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInUp {
+  animation: slideInUp var(--animation-normal) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft var(--animation-normal) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn var(--animation-normal) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-bounce {
+  animation: bounce var(--animation-slower) infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Animation delays */
+.animation-delay-75 {
+  animation-delay: 75ms;
+}
+
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animation-delay-150 {
+  animation-delay: 150ms;
 }
 
 .animation-delay-200 {
   animation-delay: 200ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animation-delay-500 {
+  animation-delay: 500ms;
+}
+
+/* Card rarity utility classes */
+.rarity-common {
+  color: rgb(var(--rarity-common));
+}
+
+.rarity-uncommon {
+  color: rgb(var(--rarity-uncommon));
+}
+
+.rarity-rare {
+  color: rgb(var(--rarity-rare));
+}
+
+.rarity-epic {
+  color: rgb(var(--rarity-epic));
+}
+
+.rarity-legendary {
+  color: rgb(var(--rarity-legendary));
+}
+
+/* Mantine UI inspired utility classes */
+.mantine-card {
+  background: rgb(var(--card));
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  transition: all var(--animation-normal) ease;
+  overflow: hidden;
+}
+
+.mantine-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Mantine UI Button Structure */
+.mantine-focus-auto {
+  outline: none;
+}
+
+.mantine-focus-auto:focus-visible {
+  outline: 2px solid var(--mantine-color-yellow-4);
+  outline-offset: 2px;
+}
+
+.mantine-active {
+  position: relative;
+}
+
+.mantine-Button-root {
+  --button-color: var(--mantine-color-white);
+  --button-bd: transparent;
+  --button-bg: transparent;
+  --button-hover: rgba(255, 255, 255, 0.05);
+  --button-bd-hover: rgba(255, 255, 255, 0.1);
+  --button-hover-color: var(--mantine-color-white);
+  
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box;
+  outline: none;
+  border: 1px solid var(--button-bd);
+  background: var(--button-bg);
+  color: var(--button-color);
+  font-family: var(--mantine-font-family);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.55;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  padding: 0.5rem 1rem;
+  transition: all 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.mantine-Button-root:hover {
+  background: var(--button-hover);
+  border-color: var(--button-bd-hover);
+  color: var(--button-hover-color);
+}
+
+.mantine-Button-root:active {
+  transform: translateY(1px);
+}
+
+.mantine-Button-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  overflow: visible;
+}
+
+.mantine-Button-label {
+  white-space: nowrap;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.mantine-UnstyledButton-root {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: var(--mantine-font-family);
+  font-size: inherit;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+/* Mantine Button Variants */
+.mantine-button-primary {
+  --button-color: var(--mantine-color-dark-7);
+  --button-bg: var(--mantine-color-yellow-4);
+  --button-bd: var(--mantine-color-yellow-4);
+  --button-hover: var(--mantine-color-yellow-5);
+  --button-bd-hover: var(--mantine-color-yellow-5);
+  --button-hover-color: var(--mantine-color-dark-7);
+}
+
+.mantine-button-secondary {
+  --button-color: var(--mantine-color-white);
+  --button-bg: var(--mantine-color-gray-6);
+  --button-bd: var(--mantine-color-gray-6);
+  --button-hover: var(--mantine-color-gray-7);
+  --button-bd-hover: var(--mantine-color-gray-7);
+  --button-hover-color: var(--mantine-color-white);
+}
+
+.mantine-button-outline {
+  --button-color: var(--mantine-color-white);
+  --button-bg: var(--mantine-color-dark-6);
+  --button-bd: var(--mantine-color-gray-4);
+  --button-hover: var(--mantine-color-dark-5);
+  --button-bd-hover: var(--mantine-color-white);
+  --button-hover-color: var(--mantine-color-white);
+}
+
+.mantine-button-ghost {
+  --button-color: var(--mantine-color-white);
+  --button-bg: transparent;
+  --button-bd: transparent;
+  --button-hover: var(--mantine-color-dark-6);
+  --button-bd-hover: transparent;
+  --button-hover-color: var(--mantine-color-white);
+}
+
+/* Mantine "default" variant - like in the example */
+.mantine-button-default {
+  --button-color: var(--mantine-color-dark-7);
+  --button-bg: var(--mantine-color-white);
+  --button-bd: var(--mantine-color-gray-4);
+  --button-hover: var(--mantine-color-gray-0);
+  --button-bd-hover: var(--mantine-color-gray-5);
+  --button-hover-color: var(--mantine-color-dark-7);
+}
+
+/* Legacy button classes for backward compatibility */
+.mantine-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  transition: all var(--animation-normal) ease;
+  cursor: pointer;
+  box-shadow: var(--shadow-button);
+  text-decoration: none;
+}
+
+.mantine-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.mantine-button:active {
+  transform: translateY(0);
+}
+
+/* Glass effect - Mantine style */
+.glass-effect {
+  background: rgba(var(--card), 0.95);
+  backdrop-filter: var(--header-blur);
+  border: 1px solid rgba(var(--border), 0.5);
+  box-shadow: var(--shadow-card);
+}
+
+/* Layout utilities */
+.container-mantine {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.nav-height {
+  height: var(--nav-height);
+}
+
+.content-height {
+  min-height: calc(100vh - var(--nav-height));
+}
+
+/* Focus styles for accessibility */
+.focus-visible,
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Loading states - Mantine style */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(var(--primary), 0.3);
+  border-top: 2px solid rgb(var(--primary));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Skeleton loading - Mantine style */
+.skeleton {
+  background: linear-gradient(90deg, 
+    rgb(var(--muted)) 0%, 
+    rgba(var(--muted-foreground), 0.1) 50%, 
+    rgb(var(--muted)) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Badge styles - Mantine style */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: rgb(var(--muted));
+  color: rgb(var(--muted-foreground));
+}
+
+.badge-primary {
+  background: rgba(var(--primary), 0.1);
+  color: rgb(var(--primary));
+}
+
+.badge-secondary {
+  background: rgba(var(--secondary), 0.1);
+  color: rgb(var(--secondary));
+}
+
+.badge-success {
+  background: rgba(var(--game-success), 0.1);
+  color: rgb(var(--game-success));
+}
+
+.badge-warning {
+  background: rgba(var(--game-warning), 0.1);
+  color: rgb(var(--game-warning));
+}
+
+.badge-danger {
+  background: rgba(var(--game-danger), 0.1);
+  color: rgb(var(--game-danger));
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+  .container-mantine {
+    padding: 0 0.75rem;
+  }
+  
+  :root {
+    --nav-height: 3rem;
+  }
+  
+  .mantine-button {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container-mantine {
+    padding: 0 0.5rem;
+  }
+  
+  .mantine-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  .mantine-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --border: 0 0 0;
+    --mantine-border: 0 0 0;
+  }
+  
+  .mantine-card {
+    border: 2px solid rgb(var(--border));
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .animate-fadeIn,
+  .animate-slideInUp,
+  .animate-slideInLeft,
+  .animate-scaleIn,
+  .animate-bounce,
+  .animate-pulse {
+    animation: none !important;
+  }
 }

@@ -20,7 +20,7 @@ export default async function ProfilePage() {
     .single();
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="content-height flex items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>User Profile</CardTitle>

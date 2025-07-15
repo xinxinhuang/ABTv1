@@ -56,8 +56,9 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Admin Tools</h1>
+    <div className="content-height">
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-6">Admin Tools</h1>
       
       <Card className="mb-6">
         <CardHeader>
@@ -99,6 +100,7 @@ export default function AdminPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

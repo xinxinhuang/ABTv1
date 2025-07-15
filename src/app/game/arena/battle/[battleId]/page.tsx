@@ -1106,34 +1106,36 @@ export default function BattlePage() {
   };
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Battle Arena - {battle?.id}</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-          {battle?.status === 'cards_revealed' && (
+    <div className="content-height">
+      <div className="p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Battle Arena - {battle?.id}</h1>
+          <div className="flex gap-2">
             <button
-              onClick={triggerAutoResolve}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
             >
-              Force Resolve
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
-          )}
+            {battle?.status === 'cards_revealed' && (
+              <button
+                onClick={triggerAutoResolve}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              >
+                Force Resolve
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="w-full lg:w-3/4">
-          {renderContent()}
-        </div>
-        <div className="w-full lg:w-1/4">
-          {battle && <GameLog battleState={battle} />}
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="w-full lg:w-3/4">
+            {renderContent()}
+          </div>
+          <div className="w-full lg:w-1/4">
+            {battle && <GameLog battleState={battle} />}
+          </div>
         </div>
       </div>
     </div>

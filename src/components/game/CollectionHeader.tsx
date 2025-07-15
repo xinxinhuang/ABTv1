@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { HamburgerMenu } from '@/components/navigation/HamburgerMenu';
 import { Button } from '@/components/ui/Button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/AlertDialog';
 import { Trash2 } from 'lucide-react';
@@ -75,7 +74,6 @@ export function CollectionHeader({ title }: CollectionHeaderProps) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <HamburgerMenu />
       </div>
     </div>
   );

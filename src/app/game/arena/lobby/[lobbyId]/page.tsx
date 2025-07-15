@@ -116,26 +116,28 @@ export default function PreBattleRoomPage() {
   const player2 = lobbyState.player2;
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4">Pre-Battle Room</h1>
-      <div className="grid grid-cols-2 gap-8 items-center mb-8">
-        <div className="text-center">
-          <PlayerStatus name={player1.username} isReady={lobbyState.battle_state?.player1_ready || false} />
+    <div className="content-height">
+      <div className="container mx-auto p-4">
+        <h1 className="text-3xl font-bold mb-4">Pre-Battle Room</h1>
+        <div className="grid grid-cols-2 gap-8 items-center mb-8">
+          <div className="text-center">
+            <PlayerStatus name={player1.username} isReady={lobbyState.battle_state?.player1_ready || false} />
+          </div>
+          <div className="text-center">
+            <PlayerStatus name={player2.username} isReady={lobbyState.battle_state?.player2_ready || false} />
+          </div>
         </div>
-        <div className="text-center">
-          <PlayerStatus name={player2.username} isReady={lobbyState.battle_state?.player2_ready || false} />
+        
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4">Select Your Champion</h2>
+          <CardSelector 
+            cards={playerCards}
+            onCardSelect={handleCardSelect}
+            onConfirmSelection={handleConfirmSelection}
+            selectedCard={selectedCard}
+            isSubmitting={isSubmitting}
+          />
         </div>
-      </div>
-      
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-4">Select Your Champion</h2>
-        <CardSelector 
-          cards={playerCards}
-          onCardSelect={handleCardSelect}
-          onConfirmSelection={handleConfirmSelection}
-          selectedCard={selectedCard}
-          isSubmitting={isSubmitting}
-        />
       </div>
     </div>
   );

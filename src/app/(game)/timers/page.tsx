@@ -21,11 +21,13 @@ export default async function TimersPage() {
     .order('start_time', { ascending: true });
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4">Timers</h1>
-      <div className="grid md:grid-cols-2 gap-8">
-        <StartTimerForm />
-        <ActiveTimersDisplay timers={timers as ActiveTimer[] || []} />
+    <div className="content-height">
+      <div className="container mx-auto p-4">
+        <h1 className="text-3xl font-bold mb-4">Timers</h1>
+        <div className="grid md:grid-cols-2 gap-8">
+          <StartTimerForm />
+          <ActiveTimersDisplay timers={timers as ActiveTimer[] || []} />
+        </div>
       </div>
     </div>
   );

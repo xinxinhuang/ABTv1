@@ -22,7 +22,7 @@ export default function BattlePage() {
   }, [lobbyId, router]);
 
   return (
-    <div className="flex items-center justify-center min-h-[70vh]">
+    <div className="content-height flex items-center justify-center">
       <div className="text-center">
         <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-white mx-auto mb-4"></div>
         <p className="text-xl">Redirecting to new battle page...</p>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PackOpener } from '@/components/game/PackOpener';
 import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
 import { Card } from '@/types/game';
@@ -8,8 +8,8 @@ import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { Card as CardUI, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { HamburgerMenu } from '@/components/navigation/HamburgerMenu';
 import { Slider } from '@/components/ui/slider';
+import TimeFeedbackSlider from '@/components/game/TimeFeedbackSlider';
 
 interface PackInfo {
   type: 'humanoid' | 'weapon';
@@ -36,6 +36,10 @@ export default function PacksPage() {
   const [timerDurations, setTimerDurations] = useState<{[key: string]: number}>({ 
     'humanoid': 4,
     'weapon': 4 
+  });
+  const [cardColors, setCardColors] = useState<{[key: string]: string}>({ 
+    'humanoid': '#cd7f32',
+    'weapon': '#cd7f32' 
   });
   
   // Fetch active timers on component mount
@@ -174,12 +178,25 @@ export default function PacksPage() {
     setIsOpeningPack(false);
   };
 
+  // Create stable callbacks for each pack type
+  const handleHumanoidColorChange = useCallback((colors: { bg: string; dark: string; light: string; track: string }) => {
+    setCardColors(prev => ({
+      ...prev,
+      humanoid: colors.bg
+    }));
+  }, []);
+
+  const handleWeaponColorChange = useCallback((colors: { bg: string; dark: string; light: string; track: string }) => {
+    setCardColors(prev => ({
+      ...prev,
+      weapon: colors.bg
+    }));
+  }, []);
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Booster Packs</h1>
-        <HamburgerMenu />
-      </div>
+    <div className="content-height">
+      <div className="container mx-auto px-4 py-8">
+        <div className="h-16"></div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Booster Packs Section */}
@@ -195,44 +212,39 @@ export default function PacksPage() {
                 return (
                   <div 
                     key={`${pack.type}`}
-                    className="border rounded-lg p-6 bg-muted/20 shadow-sm hover:shadow transition-shadow"
+                    className="border rounded-lg p-6 shadow-sm hover:shadow transition-all duration-300"
+                    style={{ backgroundColor: cardColors[pack.type] }}
                   >
-                    <h2 className="text-xl font-bold mb-2">{pack.name}</h2>
-                    <p className="text-muted-foreground mb-4">{pack.description}</p>
+                    <h2 className="text-xl font-bold mb-2 text-gray-700">{pack.name}</h2>
+                    <p className="text-gray-600 mb-4">{pack.description}</p>
                     
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">Time to open:</span>
-                        <span className="ml-2">{timerDurations[pack.type]} hours</span>
+                        <span className="font-medium text-gray-700">Time to open:</span>
                       </div>
                       <div className="mb-2">
-                        <Slider 
-                          value={[timerDurations[pack.type]]}
-                          min={4}
-                          max={24}
-                          step={1}
+                        <TimeFeedbackSlider 
+                          value={timerDurations[pack.type]}
                           onValueChange={(value) => {
                             setTimerDurations(prev => ({
                               ...prev,
-                              [pack.type]: value[0]
+                              [pack.type]: value
                             }));
                           }}
+                          onColorChange={pack.type === 'humanoid' ? handleHumanoidColorChange : handleWeaponColorChange}
+                          packType={pack.type}
                         />
-                      </div>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>4h (1% gold chance)</span>
-                        <span>24h (20% gold chance)</span>
                       </div>
                     </div>
                     
                     <div className="flex items-center justify-between mt-4">
-                      <p className="text-sm opacity-70">
+                      <p className="text-sm text-gray-600">
                         Unlimited packs available
                       </p>
                       <Button 
                         onClick={() => handleStartTimer(pack)} 
                         disabled={isLoading[pack.type]}
-                        className="ml-auto"
+                        className="ml-auto bg-gray-700/80 hover:bg-gray-700 text-white border-gray-700/50"
                       >
                         {isLoading[pack.type] ? 'Starting...' : 'Start Timer'}
                       </Button>
@@ -265,6 +277,7 @@ export default function PacksPage() {
           />
         </div>
       )}
+    </div>
     </div>
   );
 }
