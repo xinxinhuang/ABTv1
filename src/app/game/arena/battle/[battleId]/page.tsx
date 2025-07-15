@@ -50,7 +50,7 @@ export default function BattlePage() {
   }, [hasOpponentSelected]);
 
   // Function to fetch card details when selections are made
-  const fetchCardDetails = async (selectionData: any) => {
+  const fetchCardDetails = useCallback(async (selectionData: any) => {
     console.log('Fetching card details for selections:', selectionData);
     
     try {
@@ -100,7 +100,7 @@ export default function BattlePage() {
     } catch (err) {
       console.error('Error fetching card details:', err);
     }
-  };
+  }, [supabase]);
   
   const handleSelectionConfirmed = async (cardId: string) => {
     if (!user || !battle || !cardId) return;
@@ -246,6 +246,13 @@ export default function BattlePage() {
     
     const bothSubmitted = selection.player1_card_id && selection.player2_card_id;
     console.log('Both players submitted:', bothSubmitted);
+    console.log('Battle status:', battle.status);
+    
+    // Only attempt to resolve if battle is in cards_revealed status
+    if (battle.status === 'completed') {
+      console.log('Battle is already completed, skipping auto-resolve');
+      return;
+    }
     
     if (bothSubmitted && battle.status === 'cards_revealed') {
       console.log('Calling resolve-battle-v2 manually...');
@@ -262,6 +269,8 @@ export default function BattlePage() {
       } catch (err) {
         console.error('Manual resolve exception:', err);
       }
+    } else {
+      console.log(`Battle not ready for resolution. Status: ${battle.status}, Both submitted: ${bothSubmitted}`);
     }
   }, [battle, selection, supabase]);
 
@@ -269,9 +278,15 @@ export default function BattlePage() {
   const handleRefresh = useCallback(async () => {
     console.log('Manual refresh triggered');
     await fetchBattleData(true);
-    // After refresh, trigger auto-resolve if needed
-    setTimeout(triggerAutoResolve, 1000);
-  }, [fetchBattleData, triggerAutoResolve]);
+    // After refresh, trigger auto-resolve if needed (but only if battle isn't already completed)
+    setTimeout(() => {
+      if (battle?.status !== 'completed') {
+        triggerAutoResolve();
+      } else {
+        console.log('Battle already completed, skipping auto-resolve trigger');
+      }
+    }, 1000);
+  }, [fetchBattleData, triggerAutoResolve, battle?.status]);
 
   useEffect(() => {
     if (!battleId || !user) return;
@@ -383,7 +398,7 @@ export default function BattlePage() {
       console.log('Unsubscribing from battle channel');
       supabase.removeChannel(battleChannel);
     };
-  }, [battleId, user, supabase, battle?.challenger_id]);
+  }, [battleId, user, supabase, battle?.challenger_id, fetchCardDetails, fetchBattleData]);
   
   // We no longer need to trigger battle resolution from the client side
   // The Postgres database trigger automatically calls the resolve-battle Edge Function
@@ -700,7 +715,7 @@ export default function BattlePage() {
               </button>
               
               <button
-                onClick={() => window.location.href = '/game/arena'}
+                onClick={() => window.location.href = '/game/arena/lobby'}
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold ml-4"
               >
                 Find New Battle

@@ -206,7 +206,7 @@ export default function DatabaseSetupPage() {
       <div className="mt-6">
         <Button 
           variant="outline"
-          onClick={() => window.location.href = '/game/arena'}
+                        onClick={() => window.location.href = '/game/arena/lobby'}
           className="w-full"
         >
           Return to Battle Arena

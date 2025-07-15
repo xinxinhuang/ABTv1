@@ -142,7 +142,7 @@ export const useBattle = (battleId: string) => {
 
     if (battleError || !battleData) {
       toast.error('Battle not found or an error occurred.');
-      router.push('/game/arena');
+      router.push('/game/arena/lobby');
       return;
     }
 
@@ -326,7 +326,7 @@ export const useBattle = (battleId: string) => {
 
 
   const handleReturnToLobby = () => {
-    router.push('/game/arena');
+    router.push('/game/arena/lobby');
   };
 
   return {

@@ -11,7 +11,7 @@ export default function BattleIndexPage() {
   useEffect(() => {
     // Redirect to the game arena where users can see available battles
     toast({ title: 'Battle Arena', description: 'Redirecting to the battle lobby...' });
-    router.push('/game/arena');
+    router.push('/game/arena/lobby');
   }, [router, toast]);
 
   return (

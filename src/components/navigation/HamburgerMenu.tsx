@@ -70,7 +70,7 @@ export function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           <User className="mr-2 h-4 w-4" />
           <span>Collection</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleNavigation('/game/arena')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <DropdownMenuItem onClick={() => handleNavigation('/game/arena/lobby')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
           <Swords className="mr-2 h-4 w-4" />
           <span>Battle Arena</span>
         </DropdownMenuItem>

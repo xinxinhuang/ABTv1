@@ -52,7 +52,7 @@ export default function Home() {
                 View Collection
               </Link>
               <Link 
-                href="/game/arena"
+                href="/game/arena/lobby"
                 className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
               >
                 Battle Arena
