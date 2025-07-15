@@ -322,7 +322,7 @@ export default function BattlePage() {
     } catch (err) {
       console.error('Error fetching card details:', err);
     }
-  }, [supabase, battle?.id, battle?.challenger_id, battle?.opponent_id, battle?.status, battle?.explanation, player1Card, player2Card, failedFetches]);
+  }, [supabase, battle?.id, battle?.challenger_id, battle?.opponent_id, battle?.status, battle?.explanation, player1Card, player2Card, failedFetches, lastFetchAttempt]);
   
   const handleSelectionConfirmed = async (cardId: string) => {
     if (!user || !battle || !cardId) return;
@@ -461,7 +461,7 @@ export default function BattlePage() {
         setLoading(false);
       }
     }
-  }, [battleId, user, supabase, fetchCardDetails]);
+  }, [battleId, user, supabase, fetchCardDetails, player1Card, player2Card]);
 
   // Manual trigger for auto-resolve (for debug purposes)
   const triggerAutoResolve = useCallback(async () => {
@@ -651,7 +651,7 @@ export default function BattlePage() {
       supabase.removeChannel(battleChannel);
       supabase.removeChannel(dbChannel);
     };
-  }, [battleId, user, supabase, fetchCardDetails, fetchBattleData, battle?.challenger_id, battle?.status]);
+  }, [battleId, user, supabase, fetchCardDetails, fetchBattleData, battle, player1Card, player2Card]);
   
   // We no longer need to trigger battle resolution from the client side
   // The Postgres database trigger automatically calls the resolve-battle Edge Function
@@ -793,7 +793,7 @@ export default function BattlePage() {
       autoResolveBattle();
     }
     
-  }, [battle?.status, selection?.player1_card_id, selection?.player2_card_id, battle?.id, supabase]);
+  }, [battle, selection, battle?.status, selection?.player1_card_id, selection?.player2_card_id, battle?.id, supabase]);
 
   const renderContent = () => {
     if (loading) {

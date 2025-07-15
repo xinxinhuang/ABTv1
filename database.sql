@@ -200,8 +200,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION create_timer_with_inventory(
   p_player_id UUID,
   p_pack_type TEXT,
-  p_delay_hours INTEGER,
-  p_ends_at TIMESTAMPTZ
+  p_delay_hours INTEGER
 ) 
 RETURNS TABLE (id UUID) 
 LANGUAGE plpgsql 
@@ -233,16 +232,14 @@ BEGIN
       pack_type, 
       target_delay_hours, 
       status, 
-      start_time, 
-      ends_at
+      start_time
     )
     VALUES (
       p_player_id,
       p_pack_type,
       p_delay_hours,
       'active',
-      NOW(),
-      p_ends_at
+      NOW()
     )
     RETURNING active_timers.id INTO v_timer_id;
     

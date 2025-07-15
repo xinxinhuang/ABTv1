@@ -122,7 +122,6 @@ async function timerHandler(request: Request) {
       start_time: startTimeDate.toISOString(),
       target_delay_hours: delayHours,
       status: 'active',
-      ends_at: endTime.toISOString(),
     })
     .select()
     .single();

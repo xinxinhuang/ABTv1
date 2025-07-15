@@ -92,7 +92,6 @@ export interface Database {
           start_time: string
           target_delay_hours: number
           status: string
-          ends_at: string
         }
         Insert: {
           id?: string
@@ -101,7 +100,6 @@ export interface Database {
           start_time?: string
           target_delay_hours: number
           status?: string
-          ends_at: string
         }
         Update: {
           id?: string
@@ -110,7 +108,6 @@ export interface Database {
           start_time?: string
           target_delay_hours?: number
           status?: string
-          ends_at?: string
         }
       }
       pack_opening_history: {
