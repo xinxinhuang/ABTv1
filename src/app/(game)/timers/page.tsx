@@ -8,16 +8,16 @@ import { ActiveTimer } from '@/types/game';
 export default async function TimersPage() {
   const supabase = createServerComponentClient({ cookies });
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     redirect('/login');
   }
 
   const { data: timers } = await supabase
     .from('active_timers')
     .select('*')
-    .eq('player_id', session.user.id)
+    .eq('player_id', user.id)
     .order('start_time', { ascending: true });
 
   return (

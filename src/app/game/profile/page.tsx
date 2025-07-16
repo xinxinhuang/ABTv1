@@ -7,16 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 export default async function ProfilePage() {
   const supabase = createServerComponentClient({ cookies });
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     redirect('/login');
   }
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('username')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single();
 
   return (
@@ -32,7 +32,7 @@ export default async function ProfilePage() {
           </div>
           <div>
             <p className="font-semibold">Email</p>
-            <p>{session.user.email}</p>
+            <p>{user.email}</p>
           </div>
           <LogoutButton />
         </CardContent>

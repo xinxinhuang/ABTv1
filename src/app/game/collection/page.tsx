@@ -27,13 +27,13 @@ export default async function CollectionPage() {
   const cookieStore = cookies();
   const supabase = createServerComponentClient({ cookies: () => cookieStore });
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     redirect('/login');
   }
 
-  const cards = await getCards(supabase, session.user.id);
+  const cards = await getCards(supabase, user.id);
 
   return (
     <div className="content-height">

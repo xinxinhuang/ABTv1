@@ -7,16 +7,16 @@ import { PlayerInventory } from '@/types/game';
 export default async function InventoryPage() {
   const supabase = createServerComponentClient({ cookies });
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     redirect('/login');
   }
 
   const { data: inventory } = await supabase
     .from('player_inventory')
     .select('*')
-    .eq('player_id', session.user.id)
+    .eq('player_id', user.id)
     .single();
 
   return (
