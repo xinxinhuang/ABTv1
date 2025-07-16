@@ -70,7 +70,7 @@ export function PackOpener({ timerId, packType, onComplete, onCancel }: PackOpen
       }
 
       const data = await response.json();
-      const revealedCards = Array.isArray(data) ? data : [data];
+      const revealedCards = Array.isArray(data) ? data : [data.card];
       
       setCards(revealedCards);
       setStage('revealing');

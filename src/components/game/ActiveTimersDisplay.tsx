@@ -16,10 +16,11 @@ interface ActiveTimer {
 interface ActiveTimersDisplayProps {
   timers: ActiveTimer[];
   onTimerComplete?: (timerId: string) => void;
+  onOpenPack?: (timerId: string, packType: 'humanoid' | 'weapon') => void;
   className?: string;
 }
 
-export function ActiveTimersDisplay({ timers: initialTimers, onTimerComplete, className = '' }: ActiveTimersDisplayProps) {
+export function ActiveTimersDisplay({ timers: initialTimers, onTimerComplete, onOpenPack, className = '' }: ActiveTimersDisplayProps) {
   const [timers, setTimers] = useState<ActiveTimer[]>(initialTimers);
   
   // Update timers when props change
@@ -126,8 +127,18 @@ export function ActiveTimersDisplay({ timers: initialTimers, onTimerComplete, cl
               )}
               
               {ready && (
-                <div className="text-green-300 font-semibold">
-                  Ready to open!
+                <div className="flex items-center gap-2">
+                  <div className="text-green-300 font-semibold">
+                    Ready to open!
+                  </div>
+                  {onOpenPack && (
+                    <button
+                      onClick={() => onOpenPack(timer.id, timer.pack_type)}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm font-medium"
+                    >
+                      Open
+                    </button>
+                  )}
                 </div>
               )}
             </div>

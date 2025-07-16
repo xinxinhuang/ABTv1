@@ -61,8 +61,16 @@ export function CardDisplay({
   isSelectable = false
 }: CardDisplayProps) {
   if (!card) return null;
+  
+  // Ensure card has required properties with defaults
+  const safeCard = {
+    ...card,
+    attributes: card.attributes || { str: 0, dex: 0, int: 0 },
+    card_name: card.card_name || 'Unknown Card',
+    rarity: card.rarity || 'bronze'
+  };
 
-  const rarity = card.rarity as keyof typeof rarityStyles;
+  const rarity = safeCard.rarity as keyof typeof rarityStyles;
   const rarityStyle = rarityStyles[rarity] || rarityStyles.bronze;
 
   const cardContent = (
@@ -92,10 +100,10 @@ export function CardDisplay({
     >
       <div className="text-center mb-4">
         <h3 className="text-2xl font-bold mb-2" style={{ color: 'rgb(var(--mantine-black))' }}>
-          {card.card_name}
+          {safeCard.card_name}
         </h3>
         <p className="text-sm uppercase tracking-widest font-medium" style={{ color: rarityStyle.color }}>
-          {card.rarity}
+          {safeCard.rarity}
         </p>
       </div>
       
@@ -106,7 +114,7 @@ export function CardDisplay({
         <div className="flex justify-around text-center">
           <div>
             <p className="font-bold text-xl mb-1" style={{ color: 'rgb(var(--mantine-black))' }}>
-              {card.attributes.str || 'N/A'}
+              {safeCard.attributes.str || 'N/A'}
             </p>
             <p className="text-sm font-medium" style={{ color: 'rgb(var(--mantine-grey))' }}>
               STR
@@ -114,7 +122,7 @@ export function CardDisplay({
           </div>
           <div>
             <p className="font-bold text-xl mb-1" style={{ color: 'rgb(var(--mantine-black))' }}>
-              {card.attributes.dex || 'N/A'}
+              {safeCard.attributes.dex || 'N/A'}
             </p>
             <p className="text-sm font-medium" style={{ color: 'rgb(var(--mantine-grey))' }}>
               DEX
@@ -122,7 +130,7 @@ export function CardDisplay({
           </div>
           <div>
             <p className="font-bold text-xl mb-1" style={{ color: 'rgb(var(--mantine-black))' }}>
-              {card.attributes.int || 'N/A'}
+              {safeCard.attributes.int || 'N/A'}
             </p>
             <p className="text-sm font-medium" style={{ color: 'rgb(var(--mantine-grey))' }}>
               INT

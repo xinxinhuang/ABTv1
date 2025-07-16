@@ -58,24 +58,24 @@ export function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <DropdownMenuItem onClick={() => handleNavigation('/game')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={() => handleNavigation('/game')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
           <Home className="mr-2 h-4 w-4" />
           <span>Main Menu</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleNavigation('/game/packs')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={() => handleNavigation('/game/packs')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
           <Package className="mr-2 h-4 w-4" />
           <span>Booster Packs</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleNavigation('/game/collection')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={() => handleNavigation('/game/collection')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
           <User className="mr-2 h-4 w-4" />
           <span>Collection</span>
         </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleNavigation('/game/arena/lobby')} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={() => handleNavigation('/game/arena/lobby')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
           <Swords className="mr-2 h-4 w-4" />
           <span>Battle Arena</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={handleLogout} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Logout</span>
         </DropdownMenuItem>

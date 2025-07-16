@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { ActiveTimersDisplay } from "@/components/game/ActiveTimersDisplay";
+import { PackOpener } from "@/components/game/PackOpener";
+import { Card } from "@/types/game";
+import { toast } from "sonner";
 
 interface ActiveTimer {
   id: string;
@@ -17,26 +20,12 @@ export default function TimersPage() {
   const supabase = createClientComponentClient();
   const [userId, setUserId] = useState<string | null>(null);
   const [timers, setTimers] = useState<ActiveTimer[]>([]);
+  const [openingPack, setOpeningPack] = useState<{
+    timerId: string;
+    packType: 'humanoid' | 'weapon';
+  } | null>(null);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        
-        // Fetch active timers for this user
-        const { data } = await supabase
-          .from('active_timers')
-          .select('*')
-          .eq('player_id', user.id)
-          .eq('status', 'active');
-          
-        if (data) {
-          setTimers(data);
-        }
-      }
-    };
-
     fetchUser();
     
     // Set up real-time subscription for timer updates
@@ -66,6 +55,41 @@ export default function TimersPage() {
       .eq('id', timerId);
   };
 
+  const handleOpenPack = (timerId: string, packType: 'humanoid' | 'weapon') => {
+    setOpeningPack({ timerId, packType });
+  };
+
+  const handlePackComplete = (cards: Card[]) => {
+    setOpeningPack(null);
+    toast.success(`Received ${cards.length} new card${cards.length > 1 ? 's' : ''}!`);
+    // Refresh timers after pack is opened
+    if (userId) {
+      fetchUser();
+    }
+  };
+
+  const handlePackCancel = () => {
+    setOpeningPack(null);
+  };
+
+  const fetchUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setUserId(user.id);
+      
+      // Fetch active timers for this user
+      const { data } = await supabase
+        .from('active_timers')
+        .select('*')
+        .eq('player_id', user.id)
+        .eq('status', 'active');
+        
+      if (data) {
+        setTimers(data);
+      }
+    }
+  };
+
   return (
     <div className="content-height">
       <div className="container mx-auto p-4">
@@ -73,12 +97,23 @@ export default function TimersPage() {
         {userId ? (
           <ActiveTimersDisplay 
             timers={timers} 
-            onTimerComplete={handleTimerComplete} 
+            onTimerComplete={handleTimerComplete}
+            onOpenPack={handleOpenPack}
           />
         ) : (
           <p>Please log in to view your active timers.</p>
         )}
       </div>
+      
+      {/* Pack Opener Modal */}
+      {openingPack && (
+        <PackOpener
+          timerId={openingPack.timerId}
+          packType={openingPack.packType}
+          onComplete={handlePackComplete}
+          onCancel={handlePackCancel}
+        />
+      )}
     </div>
   );
 }
