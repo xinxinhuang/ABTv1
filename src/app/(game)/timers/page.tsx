@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
 import { StartTimerForm } from '@/components/game/StartTimerForm';
@@ -17,7 +17,7 @@ export default function TimersPage() {
     packType: 'humanoid' | 'weapon';
   } | null>(null);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setUserId(user.id);
@@ -33,7 +33,7 @@ export default function TimersPage() {
         setTimers(data);
       }
     }
-  };
+  }, [supabase]);
 
   useEffect(() => {
     fetchUser();
@@ -55,7 +55,7 @@ export default function TimersPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, userId]);
+  }, [supabase, userId, fetchUser]);
 
   const handleTimerComplete = async (timerId: string) => {
     // Update the timer status when completed

@@ -12,9 +12,7 @@ import {
   Swords, 
   Clock, 
   Shield, 
-  LogOut, 
-  Settings,
-  Trophy,
+  LogOut,
   BookOpen
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
@@ -101,84 +99,56 @@ export function Header() {
 
   return (
     <header 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-[var(--bg-primary)] backdrop-blur-sm ${
         isScrolled 
-          ? 'border-b backdrop-blur-sm' 
-          : 'backdrop-blur-sm'
+          ? 'border-b border-[var(--border-primary)] shadow-[var(--shadow-sm)]' 
+          : ''
       }`}
-      style={{
-        backgroundColor: 'var(--mantine-color-dark-7)',
-        boxShadow: isScrolled ? 'var(--shadow-card)' : 'none',
-        borderColor: isScrolled ? 'rgb(var(--mantine-border))' : 'transparent'
-      }}
     >
-      <div className="container-mantine">
+      <div className="container-game">
         <div className="flex items-center justify-between nav-height">
-          {/* Logo / Brand - Mantine style */}
+          {/* Logo / Brand */}
           <Link 
             href="/"
-            className="flex items-center space-x-2 text-xl font-bold transition-colors"
-            style={{ color: '#ffffff' }}
+            className="flex items-center space-x-2 text-xl font-bold text-[var(--text-primary)] hover:text-[var(--color-primary-500)] transition-colors"
           >
-            <div 
-              className="w-8 h-8 rounded-md flex items-center justify-center"
-              style={{ 
-                backgroundColor: 'rgb(var(--mantine-yellow))',
-                color: 'rgb(var(--mantine-black))'
-              }}
-            >
+            <div className="w-8 h-8 bg-[var(--color-primary-500)] text-[var(--color-secondary-900)] rounded-[var(--radius-md)] flex items-center justify-center">
               <Shield className="w-5 h-5" />
             </div>
             <span className="hidden sm:inline">A boring TCG</span>
           </Link>
 
-          {/* Desktop Navigation - Mantine style */}
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
             {user && navigationItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root text-sm font-medium transition-all duration-200 ${
-                  item.isActive
-                    ? 'mantine-button-primary'
-                    : 'mantine-button-ghost'
-                }`}
-                style={{ padding: '0.5rem 0.75rem' }}
-              >
-                <span className="mantine-Button-inner">
-                  <span className="mantine-Button-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </span>
-                </span>
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={item.isActive ? 'primary' : 'ghost'}
+                  size="sm"
+                  leftIcon={item.icon}
+                >
+                  {item.label}
+                </Button>
               </Link>
             ))}
           </nav>
 
-          {/* Right side actions - Mantine style */}
+          {/* Right side actions */}
           <div className="flex items-center space-x-2">
             {isLoading ? (
-              <div 
-                className="w-6 h-6 animate-spin rounded-full border-2 border-t-transparent"
-                style={{ borderColor: 'rgb(var(--mantine-yellow))' }}
-              />
+              <div className="w-6 h-6 animate-spin rounded-full border-2 border-[var(--color-primary-500)] border-t-transparent" />
             ) : user ? (
               <>
-
-
-                {/* User menu */}
-                <div className="hidden sm:flex items-center space-x-2">
-                  <button
+                {/* Desktop logout */}
+                <div className="hidden sm:flex">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleLogout}
-                    className="mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root mantine-button-ghost"
+                    leftIcon={<LogOut className="w-4 h-4" />}
                   >
-                    <span className="mantine-Button-inner">
-                      <span className="mantine-Button-label" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <LogOut className="w-4 h-4" />
-                        <span>Logout</span>
-                      </span>
-                    </span>
-                  </button>
+                    Logout
+                  </Button>
                 </div>
 
                 {/* Mobile menu */}
@@ -187,31 +157,23 @@ export function Header() {
                 </div>
               </>
             ) : (
-              /* Auth buttons for non-authenticated users - Mantine style */
+              /* Auth buttons for non-authenticated users */
               <div className="flex items-center space-x-2">
-                <Link
-                  href="/login"
-                  className="mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root mantine-button-default"
-                >
-                  <span className="mantine-Button-inner">
-                    <span className="mantine-Button-label">Sign In</span>
-                  </span>
+                <Link href="/login">
+                  <Button variant="outline" size="sm">
+                    Sign In
+                  </Button>
                 </Link>
-                <Link
-                  href="/signup"
-                  className="mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root mantine-button-primary"
-                >
-                  <span className="mantine-Button-inner">
-                    <span className="mantine-Button-label">Sign Up</span>
-                  </span>
+                <Link href="/signup">
+                  <Button variant="primary" size="sm">
+                    Sign Up
+                  </Button>
                 </Link>
               </div>
             )}
           </div>
         </div>
       </div>
-
-
     </header>
   );
 }

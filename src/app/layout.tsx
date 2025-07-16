@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import "./globals.css";
+import "@/styles/theme.css";
+import { ThemeProvider } from '@/providers/ThemeProvider';
 import { UserContextProvider } from '@/hooks/useUser';
 import RealtimeChallengeNotifier from '@/components/game/RealtimeChallengeNotifier';
 import { Header } from '@/components/layout/Header';
@@ -31,14 +32,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <UserContextProvider>
-          <Header />
-          <main className="min-h-screen">
-            {children}
-          </main>
-          <Toaster position="top-center" richColors />
-          <RealtimeChallengeNotifier />
-        </UserContextProvider>
+        <ThemeProvider defaultTheme="dark">
+          <UserContextProvider>
+            <Header />
+            <main className="content-height">
+              {children}
+            </main>
+            <Toaster position="top-center" richColors />
+            <RealtimeChallengeNotifier />
+          </UserContextProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

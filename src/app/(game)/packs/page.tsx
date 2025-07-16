@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { SparklesText } from '@/components/ui/sparkles-text';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PackOpener } from '@/components/game/PackOpener';
 import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
-import { Skeleton } from '@/components/ui/Skeleton';
 import { ActiveTimer } from '@/types/game';
 import { motion } from 'framer-motion';
+import { Package, Clock, Coins } from 'lucide-react';
 import BoosterFeedbackSlider from '@/components/game/BoosterFeedbackSlider';
 
 interface PlayerInventory {
@@ -155,7 +157,7 @@ export default function PacksPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--mantine-color-dark-7)' }}>
+      <div className="content-height bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center space-y-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
@@ -165,7 +167,7 @@ export default function PacksPage() {
             <div className="text-6xl mb-4">📦</div>
             <SparklesText 
               text="Loading..."
-              colors={{ first: '#ffd43b', second: '#fab005' }}
+              colors={{ first: 'var(--color-primary-400)', second: 'var(--color-primary-500)' }}
               className="text-2xl md:text-4xl font-bold"
               sparklesCount={8}
             />
@@ -178,7 +180,7 @@ export default function PacksPage() {
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
-                  className="w-3 h-3 bg-yellow-400 rounded-full"
+                  className="w-3 h-3 bg-[var(--color-primary-500)] rounded-full"
                   animate={{
                     scale: [1, 1.2, 1],
                     opacity: [0.5, 1, 0.5],
@@ -201,156 +203,168 @@ export default function PacksPage() {
   const readyTimers = timers.filter(t => t.status === 'ready');
 
   return (
-    <div className="content-height flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--mantine-color-dark-7)' }}>
-      <div className="text-center space-y-12 max-w-4xl mx-auto p-8">
-        <SparklesText 
-          text="Card Packs"
-          colors={{ first: '#ffd43b', second: '#fab005' }}
-          className="text-4xl md:text-6xl font-bold"
-          sparklesCount={10}
-        />
+    <div className="content-height bg-[var(--bg-primary)]">
+      <div className="container-game py-8">
+        <div className="text-center mb-8">
+          <SparklesText 
+            text="Card Packs"
+            colors={{ first: 'var(--color-primary-400)', second: 'var(--color-primary-500)' }}
+            className="text-4xl md:text-6xl font-bold"
+            sparklesCount={10}
+          />
+        </div>
 
         <div className="space-y-8">
           {/* Inventory Display */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-wrap justify-center gap-6"
-          >
-            <motion.div 
-              className="bg-blue-500/20 border border-blue-500/30 rounded-2xl px-8 py-4 text-center hover:bg-blue-500/30 transition-colors cursor-pointer group"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="text-3xl font-bold text-blue-300 group-hover:text-blue-200 transition-colors">
-                {inventory?.humanoid_packs || 0}
-              </div>
-              <div className="text-blue-200 group-hover:text-blue-100 transition-colors flex items-center gap-2 justify-center">
-                <span>🤖</span>
-                <span>Humanoid Packs</span>
-              </div>
-            </motion.div>
-            <motion.div 
-              className="bg-purple-500/20 border border-purple-500/30 rounded-2xl px-8 py-4 text-center hover:bg-purple-500/30 transition-colors cursor-pointer group"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="text-3xl font-bold text-purple-300 group-hover:text-purple-200 transition-colors">
-                {inventory?.weapon_packs || 0}
-              </div>
-              <div className="text-purple-200 group-hover:text-purple-100 transition-colors flex items-center gap-2 justify-center">
-                <span>⚔️</span>
-                <span>Weapon Packs</span>
-              </div>
-            </motion.div>
-            <motion.div 
-              className="bg-amber-500/20 border border-amber-500/30 rounded-2xl px-8 py-4 text-center hover:bg-amber-500/30 transition-colors cursor-pointer group"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="text-3xl font-bold text-amber-300 group-hover:text-amber-200 transition-colors">
-                {inventory?.coins || 0}
-              </div>
-              <div className="text-amber-200 group-hover:text-amber-100 transition-colors flex items-center gap-2 justify-center">
-                <span>💰</span>
-                <span>Coins</span>
-              </div>
-            </motion.div>
-          </motion.div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card variant="interactive" className="text-center">
+              <CardContent className="p-6">
+                <Package className="w-8 h-8 text-[var(--color-primary-500)] mx-auto mb-4" />
+                <div className="text-3xl font-bold text-[var(--text-primary)] mb-2">
+                  {inventory?.humanoid_packs || 0}
+                </div>
+                <div className="text-[var(--text-secondary)]">
+                  Humanoid Packs
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Pack Opening Buttons with Feedback Sliders */}
+            <Card variant="interactive" className="text-center">
+              <CardContent className="p-6">
+                <Package className="w-8 h-8 text-[var(--color-primary-500)] mx-auto mb-4" />
+                <div className="text-3xl font-bold text-[var(--text-primary)] mb-2">
+                  {inventory?.weapon_packs || 0}
+                </div>
+                <div className="text-[var(--text-secondary)]">
+                  Weapon Packs
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card variant="interactive" className="text-center">
+              <CardContent className="p-6">
+                <Coins className="w-8 h-8 text-[var(--color-primary-500)] mx-auto mb-4" />
+                <div className="text-3xl font-bold text-[var(--text-primary)] mb-2">
+                  {inventory?.coins || 0}
+                </div>
+                <div className="text-[var(--text-secondary)]">
+                  Coins
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pack Opening Section */}
           {hasActivePacks && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-col sm:flex-row gap-6 justify-center"
-            >
-              <div className="relative group">
-                <BoosterFeedbackSlider
-                  packType="humanoid"
-                  packName="Humanoid Pack"
-                  className="w-80 h-80 border-2 border-blue-500/30 hover:border-blue-500/50 transition-all duration-300 shadow-lg hover:shadow-xl"
-                />
-                <button
-                  onClick={() => handleOpenPack('humanoid')}
-                  disabled={!inventory?.humanoid_packs}
-                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600/90 hover:bg-blue-700/90 disabled:bg-gray-600/90 text-white font-semibold py-2 px-6 rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg backdrop-blur-sm"
-                >
-                  {inventory?.humanoid_packs ? `Open (${inventory.humanoid_packs})` : 'No Packs'}
-                </button>
-              </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card variant="interactive" className="relative overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Humanoid Pack
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <BoosterFeedbackSlider
+                    packType="humanoid"
+                    packName="Humanoid Pack"
+                    className="w-full h-64 border border-[var(--border-primary)] rounded-[var(--radius-md)]"
+                  />
+                  <Button
+                    onClick={() => handleOpenPack('humanoid')}
+                    disabled={!inventory?.humanoid_packs}
+                    variant="primary"
+                    size="lg"
+                    className="w-full"
+                  >
+                    {inventory?.humanoid_packs ? `Open Pack (${inventory.humanoid_packs})` : 'No Packs Available'}
+                  </Button>
+                </CardContent>
+              </Card>
 
-              <div className="relative group">
-                <BoosterFeedbackSlider
-                  packType="weapon"
-                  packName="Weapon Pack"
-                  className="w-80 h-80 border-2 border-purple-500/30 hover:border-purple-500/50 transition-all duration-300 shadow-lg hover:shadow-xl"
-                />
-                <button
-                  onClick={() => handleOpenPack('weapon')}
-                  disabled={!inventory?.weapon_packs}
-                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-purple-600/90 hover:bg-purple-700/90 disabled:bg-gray-600/90 text-white font-semibold py-2 px-6 rounded-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg backdrop-blur-sm"
-                >
-                  {inventory?.weapon_packs ? `Open (${inventory.weapon_packs})` : 'No Packs'}
-                </button>
-              </div>
-            </motion.div>
+              <Card variant="interactive" className="relative overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Weapon Pack
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <BoosterFeedbackSlider
+                    packType="weapon"
+                    packName="Weapon Pack"
+                    className="w-full h-64 border border-[var(--border-primary)] rounded-[var(--radius-md)]"
+                  />
+                  <Button
+                    onClick={() => handleOpenPack('weapon')}
+                    disabled={!inventory?.weapon_packs}
+                    variant="primary"
+                    size="lg"
+                    className="w-full"
+                  >
+                    {inventory?.weapon_packs ? `Open Pack (${inventory.weapon_packs})` : 'No Packs Available'}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {/* No Packs Message */}
           {!hasActivePacks && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-center py-12"
-            >
-              <div className="text-6xl mb-4">📦</div>
-              <div className="text-2xl text-gray-300 mb-2">No Packs Available</div>
-              <div className="text-gray-400">Check back later for new packs!</div>
-            </motion.div>
+            <Card className="text-center py-12">
+              <CardContent>
+                <div className="text-6xl mb-4">📦</div>
+                <div className="text-2xl text-[var(--text-primary)] mb-2">No Packs Available</div>
+                <div className="text-[var(--text-secondary)]">Check back later for new packs!</div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Ready Timers */}
           {readyTimers.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-green-500/10 border border-green-500/30 rounded-2xl p-6"
-            >
-              <h3 className="text-2xl font-bold text-green-300 mb-4">Ready to Open!</h3>
-              <div className="space-y-3">
+            <Card className="border-[var(--color-success)]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-[var(--color-success)]">
+                  <Clock className="w-5 h-5" />
+                  Ready to Open!
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 {readyTimers.map(timer => (
-                  <div key={timer.id} className="flex items-center justify-between bg-green-500/20 rounded-lg p-4">
+                  <div key={timer.id} className="flex items-center justify-between bg-[var(--color-success)]/10 rounded-[var(--radius-md)] p-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-green-200 capitalize">{timer.pack_type} Pack</span>
+                      <div className="w-3 h-3 bg-[var(--color-success)] rounded-full animate-pulse"></div>
+                      <span className="text-[var(--text-primary)] capitalize">{timer.pack_type} Pack</span>
                     </div>
-                    <button
+                    <Button
                       onClick={() => setOpeningPack({ timerId: timer.id, packType: timer.pack_type as 'humanoid' | 'weapon' })}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                      variant="primary"
+                      size="sm"
                     >
                       Open Now
-                    </button>
+                    </Button>
                   </div>
                 ))}
-              </div>
-            </motion.div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Active Timers */}
           {timers.filter(t => t.status === 'active').length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="bg-gray-500/10 border border-gray-500/30 rounded-2xl p-6"
-            >
-              <h3 className="text-2xl font-bold text-gray-300 mb-4">Opening Soon...</h3>
-              <ActiveTimersDisplay timers={timers.filter(t => t.status === 'active')} />
-            </motion.div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Opening Soon...
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ActiveTimersDisplay 
+                  timers={timers.filter(t => t.status === 'active')} 
+                  onOpenPack={(timerId, packType) => setOpeningPack({ timerId, packType })}
+                />
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>

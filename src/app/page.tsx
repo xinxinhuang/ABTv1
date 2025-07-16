@@ -2,47 +2,67 @@
 
 import Link from 'next/link';
 import { SparklesText } from '@/components/ui/sparkles-text';
+import { Button } from '@/components/ui/Button';
 import { useUser } from '@/hooks/useUser';
+import { LogIn, UserPlus, Package, BookOpen } from 'lucide-react';
 
 export default function Home() {
   const { user } = useUser();
 
   return (
-    <div className="content-height flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--mantine-color-dark-7)' }}>
-      <div className="text-center space-y-8">
-        {/* SparklesText Title */}
+    <div className="content-height bg-[var(--bg-primary)] flex items-center justify-center">
+      <div className="container-game text-center space-y-12">
+        {/* Title */}
         <SparklesText 
           text="A Boring TCG"
-          colors={{ first: '#ffd43b', second: '#fab005' }}
-          className="text-4xl md:text-6xl lg:text-8xl font-bold mb-8"
+          colors={{ first: 'var(--color-primary-400)', second: 'var(--color-primary-500)' }}
+          className="text-4xl md:text-6xl lg:text-8xl font-bold"
           sparklesCount={15}
         />
         
-        {/* Subtitle */}
-        <p className="text-xl md:text-2xl text-white max-w-2xl mx-auto mb-12">
-          Collect, trade, and battle with unique digital cards
-        </p>
-        
         {/* Action Buttons */}
-        {!user && (
+        {!user ? (
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/login"
-              className="mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root mantine-button-default text-lg"
-              style={{ minWidth: '160px', padding: '0.75rem 2rem' }}
-            >
-              <span className="mantine-Button-inner">
-                <span className="mantine-Button-label">Sign In</span>
-              </span>
+            <Link href="/signup">
+              <Button
+                size="xl"
+                variant="primary"
+                leftIcon={<UserPlus className="w-5 h-5" />}
+              >
+                Create Account
+              </Button>
             </Link>
-            <Link
-              href="/signup"
-              className="mantine-focus-auto mantine-active mantine-Button-root mantine-UnstyledButton-root mantine-button-primary text-lg"
-              style={{ minWidth: '160px', padding: '0.75rem 2rem' }}
-            >
-              <span className="mantine-Button-inner">
-                <span className="mantine-Button-label">Create Account</span>
-              </span>
+            <Link href="/login">
+              <Button
+                size="xl"
+                variant="outline"
+                leftIcon={<LogIn className="w-5 h-5" />}
+              >
+                Sign In
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Link href="/game/packs">
+              <Button
+                size="xl"
+                variant="primary"
+                leftIcon={<Package className="w-6 h-6" />}
+                className="min-w-48"
+              >
+                Open Packs
+              </Button>
+            </Link>
+            <Link href="/game/collection">
+              <Button
+                size="xl"
+                variant="secondary"
+                leftIcon={<BookOpen className="w-6 h-6" />}
+                className="min-w-48"
+              >
+                View Collection
+              </Button>
             </Link>
           </div>
         )}

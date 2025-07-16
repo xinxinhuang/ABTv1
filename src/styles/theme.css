@@ -1,0 +1,311 @@
+/* Theme-based CSS using CSS custom properties */
+@import "tailwindcss";
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+/* Theme-aware backgrounds and text */
+[data-theme="light"] {
+  --bg-primary: var(--color-secondary-50);
+  --bg-secondary: #ffffff;
+  --text-primary: var(--color-secondary-900);
+  --text-secondary: var(--color-secondary-600);
+  --border-primary: var(--color-secondary-200);
+}
+
+[data-theme="dark"] {
+  --bg-primary: var(--color-secondary-900);
+  --bg-secondary: var(--color-secondary-800);
+  --text-primary: #ffffff;
+  --text-secondary: var(--color-secondary-300);
+  --border-primary: var(--color-secondary-700);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Form elements */
+input[type="email"],
+input[type="password"],
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  transition: all var(--duration-normal) var(--easing-easeOut);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: var(--shadow-focus);
+}
+
+::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Selection styling */
+::selection {
+  background-color: var(--color-primary-500);
+  color: var(--color-secondary-900);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-secondary);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-primary);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 5px var(--color-primary-500); }
+  50% { box-shadow: 0 0 20px var(--color-primary-500), 0 0 30px var(--color-primary-500); }
+}
+
+/* Animation utility classes */
+.animate-fadeIn {
+  animation: fadeIn var(--duration-normal) var(--easing-easeOut) forwards;
+}
+
+.animate-slideInUp {
+  animation: slideInUp var(--duration-normal) var(--easing-easeOut) forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn var(--duration-normal) var(--easing-easeOut) forwards;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Card rarity glow effects */
+.rarity-glow-common {
+  box-shadow: 0 0 10px var(--color-rarity-common);
+}
+
+.rarity-glow-uncommon {
+  box-shadow: 0 0 12px var(--color-rarity-uncommon);
+}
+
+.rarity-glow-rare {
+  box-shadow: 0 0 15px var(--color-rarity-rare);
+}
+
+.rarity-glow-epic {
+  box-shadow: 0 0 20px var(--color-rarity-epic);
+}
+
+.rarity-glow-legendary {
+  box-shadow: 0 0 25px var(--color-rarity-legendary);
+}
+
+/* Focus styles for accessibility */
+.focus-visible,
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--color-primary-300);
+  border-top: 2px solid var(--color-primary-500);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, 
+    var(--bg-secondary) 0%, 
+    var(--border-primary) 50%, 
+    var(--bg-secondary) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Utility classes */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="light"] .glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Container utilities */
+.container-game {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+/* Layout utilities */
+.nav-height {
+  height: 3.5rem;
+}
+
+.content-height {
+  min-height: calc(100vh - 3.5rem);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container-game {
+    padding: 0 var(--spacing-sm);
+  }
+  
+  .nav-height {
+    height: 3rem;
+  }
+  
+  .content-height {
+    min-height: calc(100vh - 3rem);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  input, textarea, select {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .animate-fadeIn,
+  .animate-slideInUp,
+  .animate-scaleIn,
+  .animate-pulse,
+  .animate-glow {
+    animation: none !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}

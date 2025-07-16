@@ -118,7 +118,7 @@ const TimeFeedbackSlider = React.forwardRef<HTMLDivElement, TimeFeedbackSliderPr
       if (onColorChange) {
         onColorChange(currentColors);
       }
-    }, [value, onColorChange]); // Remove currentColors dependency to prevent infinite loop
+    }, [value, onColorChange, currentColors]);
 
     // Calculate eye properties based on hours
     const getEyeProperties = (hours: number) => {
@@ -151,12 +151,6 @@ const TimeFeedbackSlider = React.forwardRef<HTMLDivElement, TimeFeedbackSliderPr
     // Calculate slider position (0% to 100%)
     const sliderPosition = ((value - 4) / (24 - 4)) * 100;
 
-    // Handle mouse/touch events for dragging
-    const handlePointerDown = useCallback((e: React.PointerEvent) => {
-      setIsDragging(true);
-      handlePointerMove(e);
-    }, []);
-
     const handlePointerMove = useCallback((e: React.PointerEvent | PointerEvent) => {
       if (!sliderRef.current) return;
       
@@ -166,6 +160,12 @@ const TimeFeedbackSlider = React.forwardRef<HTMLDivElement, TimeFeedbackSliderPr
       const newValue = Math.round(4 + percentage * (24 - 4));
       onValueChange(newValue);
     }, [onValueChange]);
+
+    // Handle mouse/touch events for dragging
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
+      setIsDragging(true);
+      handlePointerMove(e);
+    }, [handlePointerMove]);
 
     const handlePointerUp = useCallback(() => {
       setIsDragging(false);

@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, Home, LogOut, Package, User, Swords } from 'lucide-react';
+import { Menu, Home, LogOut, Package, User, Swords, Clock, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -45,8 +45,8 @@ export function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
       <DropdownMenuTrigger asChild>
         <Button 
           variant="ghost" 
-          size="sm"
-          className={`p-2 ${className}`}
+          size="icon"
+          className={className}
           disabled={isLoading}
         >
           {isLoading ? (
@@ -57,25 +57,57 @@ export function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           <span className="sr-only">Menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <DropdownMenuItem onClick={() => handleNavigation('/game')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
+      <DropdownMenuContent 
+        align="end" 
+        className="w-48 bg-[var(--bg-secondary)] border border-[var(--border-primary)] shadow-[var(--shadow-md)]"
+      >
+        <DropdownMenuItem 
+          onClick={() => handleNavigation('/')} 
+          className="text-[var(--text-primary)] hover:bg-[var(--color-primary-500)] hover:text-[var(--color-secondary-900)]"
+        >
           <Home className="mr-2 h-4 w-4" />
-          <span>Main Menu</span>
+          <span>Home</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleNavigation('/game/packs')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem 
+          onClick={() => handleNavigation('/game/packs')} 
+          className="text-[var(--text-primary)] hover:bg-[var(--color-primary-500)] hover:text-[var(--color-secondary-900)]"
+        >
           <Package className="mr-2 h-4 w-4" />
-          <span>Booster Packs</span>
+          <span>Packs</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleNavigation('/game/collection')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
-          <User className="mr-2 h-4 w-4" />
+        <DropdownMenuItem 
+          onClick={() => handleNavigation('/game/collection')} 
+          className="text-[var(--text-primary)] hover:bg-[var(--color-primary-500)] hover:text-[var(--color-secondary-900)]"
+        >
+          <BookOpen className="mr-2 h-4 w-4" />
           <span>Collection</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleNavigation('/game/arena/lobby')} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem 
+          onClick={() => handleNavigation('/game/arena/lobby')} 
+          className="text-[var(--text-primary)] hover:bg-[var(--color-primary-500)] hover:text-[var(--color-secondary-900)]"
+        >
           <Swords className="mr-2 h-4 w-4" />
-          <span>Battle Arena</span>
+          <span>Arena</span>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
+        <DropdownMenuItem 
+          onClick={() => handleNavigation('/game/timers')} 
+          className="text-[var(--text-primary)] hover:bg-[var(--color-primary-500)] hover:text-[var(--color-secondary-900)]"
+        >
+          <Clock className="mr-2 h-4 w-4" />
+          <span>Timers</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem 
+          onClick={() => handleNavigation('/game/profile')} 
+          className="text-[var(--text-primary)] hover:bg-[var(--color-primary-500)] hover:text-[var(--color-secondary-900)]"
+        >
+          <User className="mr-2 h-4 w-4" />
+          <span>Profile</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className="bg-[var(--border-primary)]" />
+        <DropdownMenuItem 
+          onClick={handleLogout} 
+          className="text-[var(--text-primary)] hover:bg-[var(--color-error)] hover:text-white"
+        >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Logout</span>
         </DropdownMenuItem>
