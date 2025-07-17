@@ -136,18 +136,20 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
           player_id: user.id,
           card_id: selectedCard,
           timestamp: new Date().toISOString(),
-          battle_status: response.data?.status || 'selecting'
+          battle_status: response.data?.status || 'active',
+          both_submitted: response.data?.both_submitted || false
         }
       });
       
       // If both players have submitted, broadcast battle update
-      if (response.data?.status === 'cards_revealed') {
+      if (response.data?.both_submitted || response.data?.status === 'cards_revealed') {
+        console.log('🎯 Both players have submitted cards, broadcasting battle update');
         await broadcastChannel.send({
           type: 'broadcast',
           event: 'battle_update',
           payload: {
             battle_id: battleId,
-            status: 'cards_revealed',
+            status: response.data?.status || 'cards_revealed',
             both_submitted: true,
             timestamp: new Date().toISOString()
           }

@@ -38,9 +38,14 @@ export interface BattleInstance {
 export interface BattleSelection {
   id: string;
   battle_id: string;
-  player_id: string;
-  player_card_id: string;
+  player1_id: string | null;
+  player1_card_id: string | null;
+  player1_submitted_at: string | null;
+  player2_id: string | null;
+  player2_card_id: string | null;
+  player2_submitted_at: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 /**

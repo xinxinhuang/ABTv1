@@ -189,61 +189,122 @@ serve(async (req: Request) => {
       .from("battle_selections")
       .select("*")
       .eq("battle_id", battle_id)
-      .maybeSingle(); // Use maybeSingle instead of single to avoid error when no record exists
+      .maybeSingle();
 
     console.log('Existing selection record:', existingSelection);
-    // Only log real errors, not the expected case of no record found
-    if (existingSelectionError && existingSelectionError.code !== 'PGRST116') {
-      console.error('Error fetching existing selection:', existingSelectionError);
+    
+    // If there was an error or no selection exists, try to create one
+    if ((existingSelectionError && existingSelectionError.code !== 'PGRST116') || !existingSelection) {
+      console.log('No selection record found or error occurred, creating one...');
+      const { error: createError } = await supabase
+        .from("battle_selections")
+        .insert({
+          battle_id,
+          player1_id: battle.challenger_id,
+          player2_id: battle.opponent_id,
+          player1_card_id: null,
+          player2_card_id: null,
+          player1_submitted_at: null,
+          player2_submitted_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+        
+      if (createError) {
+        console.error('Error creating initial selection record:', createError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to initialize battle selection",
+            message: "Could not create battle selection record"
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
     }
 
-    // Prepare the update data based on which player is making the selection
-    let updateData = {};
-    
-    if (existingSelection) {
-      // If a record exists, only update the specific player's card selection
-      updateData = isChallenger
-        ? { 
-            player1_card_id: resolvedCard,
-            player1_id: player1_id, // Use the challenger_id as player1_id
-            player1_submitted_at: new Date().toISOString()
-          }
-        : { 
-            player2_card_id: resolvedCard,
-            player2_id: player2_id, // Use the opponent_id as player2_id
-            player2_submitted_at: new Date().toISOString()
-          };
+    // Prepare the update data - always include both player IDs for consistency
+    const currentTime = new Date().toISOString();
+    let updateData = {
+      battle_id,
+      player1_id,
+      player2_id,
+      updated_at: currentTime
+    };
+
+    // Set the appropriate card and timestamp based on which player is selecting
+    if (isChallenger) {
+      updateData = {
+        ...updateData,
+        player1_card_id: resolvedCard,
+        player1_submitted_at: currentTime
+      };
       
-      // Add the battle_id to the update data for the upsert operation
-      updateData.battle_id = battle_id;
+      // If this is the first selection, ensure player2 fields are initialized
+      if (!existingSelection) {
+        updateData = {
+          ...updateData,
+          player2_card_id: null,
+          player2_submitted_at: null
+        };
+      }
     } else {
-      // If no record exists, create a new one with the appropriate player data
-      updateData = isChallenger
-        ? { 
-            battle_id, 
-            player1_card_id: resolvedCard,
-            player1_id: player1_id, // Use the challenger_id as player1_id
-            player1_submitted_at: new Date().toISOString(),
-            player2_id: player2_id  // Include player2_id to ensure both players are recorded
-          }
-        : { 
-            battle_id, 
-            player2_card_id: resolvedCard,
-            player2_id: player2_id, // Use the opponent_id as player2_id
-            player2_submitted_at: new Date().toISOString(),
-            player1_id: player1_id  // Include player1_id to ensure both players are recorded
-          };
+      updateData = {
+        ...updateData,
+        player2_card_id: resolvedCard,
+        player2_submitted_at: currentTime
+      };
+      
+      // If this is the first selection, ensure player1 fields are initialized
+      if (!existingSelection) {
+        updateData = {
+          ...updateData,
+          player1_card_id: null,
+          player1_submitted_at: null
+        };
+      }
     }
 
     console.log("Updating battle selection with data:", JSON.stringify(updateData));
 
-    // FIX: Using admin client with service role key to ensure we can update the battle
-    const { data: selectionData, error: selectionError } = await supabase
+    console.log("Upserting battle selection with data:", JSON.stringify(updateData, null, 2));
+    
+    // First try to update the existing record if it exists
+    let { data: selectionData, error: selectionError } = await supabase
       .from("battle_selections")
       .upsert(updateData, {
-        onConflict: 'battle_id', // Keep using single column conflict for compatibility
-        returning: "minimal" // No need to return the full record for performance
+        onConflict: 'battle_id',
+        returning: "minimal"
       });
+
+    // If update failed, try to insert a new record
+    if (selectionError) {
+      console.warn("Upsert failed, trying direct insert:", selectionError);
+      
+      // Try to insert a new record with all required fields
+      const insertData = {
+        ...updateData,
+        created_at: currentTime
+      };
+      
+      const { data: insertResult, error: insertError } = await supabase
+        .from("battle_selections")
+        .insert(insertData)
+        .select()
+        .single();
+        
+      if (insertError) {
+        console.error("Insert failed:", insertError);
+        selectionError = insertError;
+      } else {
+        selectionData = insertResult;
+        selectionError = null;
+      }
+    }
 
     if (selectionError) {
       console.error("Error recording card selection:", selectionError);
@@ -269,26 +330,36 @@ serve(async (req: Request) => {
     console.log("Updated selection record:", updatedSelection);
 
     // IMPORTANT: Explicitly use the admin client with service role key for the update
+    let battleStatus = "active"; // Default status
     if (updatedSelection?.player1_card_id && updatedSelection?.player2_card_id) {
       console.log("Both players have selected cards. Updating battle status to 'cards_revealed'.");
       
       // Use explicit admin client to update battle status to ensure RLS doesn't block
       const adminClient = createClient(supabaseUrl, supabaseKey);
       
-      const { error: updateError } = await adminClient
+      const { data: updatedBattle, error: updateError } = await adminClient
         .from("battle_instances")
         .update({ status: "cards_revealed" })
         .eq("id", battle_id)
-        .select('id, status');
+        .select('id, status')
+        .single();
 
       if (updateError) {
         console.error("Error updating battle status:", updateError);
         // Don't return an error response, just log it - the selection was still successful
+      } else if (updatedBattle) {
+        battleStatus = updatedBattle.status;
+        console.log("Battle status successfully updated to:", battleStatus);
       }
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: "Card selection recorded successfully" }),
+      JSON.stringify({ 
+        success: true, 
+        message: "Card selection recorded successfully",
+        status: battleStatus,
+        both_submitted: updatedSelection?.player1_card_id && updatedSelection?.player2_card_id
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
