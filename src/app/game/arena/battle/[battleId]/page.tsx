@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
 import { useParams } from 'next/navigation';
@@ -27,6 +27,9 @@ export default function BattlePage() {
   const [opponentHasSelectedCard, setOpponentHasSelectedCard] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
+  
+  // Ref to track if subscriptions are already set up to prevent multiple setups
+  const subscriptionsSetupRef = useRef(false);
 
   // Determine if the current player has already submitted a card
   const hasPlayerSelected = useMemo(() => {
@@ -420,7 +423,11 @@ export default function BattlePage() {
       console.log('Selection error:', selectionError);
 
       if (selectionError && selectionError.code !== 'PGRST116') {
-        console.error('Error fetching battle selection:', selectionError);
+        console.error('Database error fetching battle selection:', selectionError);
+        // Only set error state for actual database errors, not expected null data
+        if (battleData.status === 'cards_revealed' || battleData.status === 'completed') {
+          console.error('Critical: Selection data missing when it should exist');
+        }
       } else if (selectionData) {
         setSelection(selectionData);
         
@@ -449,7 +456,12 @@ export default function BattlePage() {
           console.log('Already have both cards, skipping card details fetch');
         }
       } else {
-        console.warn('No selection data found - this may indicate a database issue');
+        // Only show warning if battle is in a state where selection data should exist
+        if (battleData.status === 'cards_revealed' || battleData.status === 'completed') {
+          console.warn('No selection data found - this may indicate a database issue');
+        } else {
+          console.log('No selection data found - this is expected during active battle phase');
+        }
         setSelection(null);
       }
     } catch (err) {
@@ -463,61 +475,47 @@ export default function BattlePage() {
     }
   }, [battleId, user, supabase, fetchCardDetails, player1Card, player2Card]);
 
-  // Manual trigger for auto-resolve (for debug purposes)
-  const triggerAutoResolve = useCallback(async () => {
-    console.log('Manually triggering auto-resolve...');
-    if (!battle || !selection) {
-      console.log('Missing battle or selection data for manual trigger');
-      return;
-    }
-    
-    const bothSubmitted = selection.player1_card_id && selection.player2_card_id;
-    console.log('Both players submitted:', bothSubmitted);
-    console.log('Battle status:', battle.status);
-    
-    // Only attempt to resolve if battle is in cards_revealed status
-    if (battle.status === 'completed') {
-      console.log('Battle is already completed, skipping auto-resolve');
-      return;
-    }
-    
-    if (bothSubmitted && battle.status === 'cards_revealed') {
-      console.log('Calling resolve-battle-v2 manually...');
-      try {
-        const { data, error } = await supabase.functions.invoke('resolve-battle-v2', {
-          body: { battle_id: battle.id }
-        });
-        
-        if (error) {
-          console.error('Manual resolve error:', error);
-        } else {
-          console.log('Manual resolve success:', data);
-        }
-      } catch (err) {
-        console.error('Manual resolve exception:', err);
-      }
-    } else {
-      console.log(`Battle not ready for resolution. Status: ${battle.status}, Both submitted: ${bothSubmitted}`);
-    }
-  }, [battle, selection, supabase]);
+  // Manual trigger function removed - auto-resolve is now working properly
 
   // Handle manual refresh
   const handleRefresh = useCallback(async () => {
     console.log('Manual refresh triggered');
     await fetchBattleData(true);
-    // After refresh, trigger auto-resolve if needed (but only if battle isn't already completed)
-    setTimeout(() => {
-      if (battle?.status !== 'completed') {
-        triggerAutoResolve();
-      } else {
-        console.log('Battle already completed, skipping auto-resolve trigger');
-      }
-    }, 1000);
-  }, [fetchBattleData, triggerAutoResolve, battle?.status]);
+  }, [fetchBattleData]);
 
   useEffect(() => {
     if (!battleId || !user) return;
+    
+    // Prevent multiple subscription setups
+    if (subscriptionsSetupRef.current) {
+      console.log('Subscriptions already set up, skipping');
+      return;
+    }
+    
+    subscriptionsSetupRef.current = true;
     fetchBattleData();
+
+    // Add debounce mechanism to prevent excessive refreshes
+    let refreshTimeout: NodeJS.Timeout | null = null;
+    
+    const debouncedRefresh = () => {
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+      refreshTimeout = setTimeout(async () => {
+        // Only refresh if we don't have complete data yet
+        const currentBattle = battle;
+        const currentSelection = selection;
+        
+        if (!currentBattle || !currentSelection || 
+            (currentBattle.status === 'active' && (!player1Card || !player2Card))) {
+          console.log('Battle presence sync - refreshing battle data (incomplete data)');
+          await fetchBattleData(true);
+        } else {
+          console.log('Battle presence sync - skipping refresh (complete data available)');
+        }
+      }, 3000); // Debounce by 3 seconds to reduce frequency
+    };
 
     // Set up a simplified real-time channel for battle updates
     const battleChannel = supabase
@@ -528,10 +526,7 @@ export default function BattlePage() {
           },
         },
       })
-      .on('presence', { event: 'sync' }, async () => {
-        console.log('Battle presence sync - refreshing battle data');
-        await fetchBattleData(true);
-      })
+      .on('presence', { event: 'sync' }, debouncedRefresh)
       .on('broadcast', { event: 'card_submitted' }, async (payload) => {
         console.log('Card submitted broadcast received:', payload);
         // Immediately refresh battle data when someone submits a card
@@ -545,7 +540,7 @@ export default function BattlePage() {
       .subscribe(async (status: string) => {
         console.log(`Battle presence subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          // Track this user's presence in the battle
+          // Track this user's presence in the battle (only once)
           await battleChannel.track({
             user_id: user.id,
             status: 'in_battle',
@@ -556,19 +551,25 @@ export default function BattlePage() {
 
     // Set up intelligent polling - more frequent during active phases, less frequent during waiting
     const pollInterval = setInterval(async () => {
-      if (battle?.status === 'active' || battle?.status === 'cards_revealed') {
-        // Only poll if we don't have both cards yet
-        if (!player1Card || !player2Card) {
+      // Get current state values inside the interval to avoid stale closures
+      const currentBattle = battle;
+      const currentPlayer1Card = player1Card;
+      const currentPlayer2Card = player2Card;
+      const currentSelection = selection;
+      
+      if (currentBattle?.status === 'active' || currentBattle?.status === 'cards_revealed') {
+        // Only poll if we don't have both cards yet and selection data is missing
+        if (!currentPlayer1Card || !currentPlayer2Card || !currentSelection) {
           console.log('Polling for battle updates during active phase...');
           await fetchBattleData(true);
         } else {
-          console.log('Already have both cards, skipping poll');
+          console.log('Already have both cards and selection data, skipping poll');
         }
-      } else if (battle?.status === 'completed') {
+      } else if (currentBattle?.status === 'completed') {
         console.log('Battle completed, stopping polling');
         clearInterval(pollInterval);
       }
-    }, 5000); // Poll every 5 seconds during active phases (reduced from 2 seconds)
+    }, 8000); // Poll every 8 seconds during active phases (reduced frequency)
 
     // Database subscription for critical battle updates
     const dbChannel = supabase
@@ -581,22 +582,31 @@ export default function BattlePage() {
       }, async (payload) => {
         console.log('Database battle update:', payload.new);
         const newBattleData = payload.new as BattleInstance;
+        const currentBattle = battle; // Get current state to avoid stale closure
+        const previousStatus = currentBattle?.status;
         setBattle(newBattleData);
         
-        // Immediately refresh full data when battle status changes
-        console.log(`Battle status changed to: ${newBattleData.status}`);
-        await fetchBattleData(true);
+        // Only refresh full data when battle status actually changes to important states
+        if (previousStatus !== newBattleData.status && 
+            (newBattleData.status === 'cards_revealed' || newBattleData.status === 'completed')) {
+          console.log(`Battle status changed to: ${newBattleData.status}, refreshing data`);
+          await fetchBattleData(true);
+        } else {
+          console.log(`Battle updated but status unchanged or not critical: ${newBattleData.status}`);
+        }
         
-        // Broadcast to other players
-        await battleChannel.send({
-          type: 'broadcast',
-          event: 'battle_update',
-          payload: { 
-            battle_id: battleId,
-            new_status: newBattleData.status,
-            updated_at: new Date().toISOString()
-          }
-        });
+        // Broadcast to other players only on status changes
+        if (previousStatus !== newBattleData.status) {
+          await battleChannel.send({
+            type: 'broadcast',
+            event: 'battle_update',
+            payload: { 
+              battle_id: battleId,
+              new_status: newBattleData.status,
+              updated_at: new Date().toISOString()
+            }
+          });
+        }
       })
       .on('postgres_changes', {
         event: '*',
@@ -611,8 +621,12 @@ export default function BattlePage() {
         setSelection(data);
         
         // Update player selection status immediately
-        if (user && battle) {
-          const isChallenger = user.id === battle.challenger_id;
+        const currentBattle = battle; // Get current state to avoid stale closure
+        const currentPlayer1Card = player1Card;
+        const currentPlayer2Card = player2Card;
+        
+        if (user && currentBattle) {
+          const isChallenger = user.id === currentBattle.challenger_id;
           const hasSelected = isChallenger ? !!data.player1_card_id : !!data.player2_card_id;
           const opponentSelected = isChallenger ? !!data.player2_card_id : !!data.player1_card_id;
           
@@ -625,8 +639,13 @@ export default function BattlePage() {
           }
         }
         
-        // Fetch card details
-        await fetchCardDetails(data);
+        // Fetch card details only if we don't already have them
+        if ((!currentPlayer1Card && data.player1_card_id) || (!currentPlayer2Card && data.player2_card_id)) {
+          console.log('Fetching missing card details after selection update');
+          await fetchCardDetails(data);
+        } else {
+          console.log('Card details already available, skipping fetch');
+        }
         
         // If both players submitted, broadcast update
         const bothSubmitted = data.player1_card_id && data.player2_card_id;
@@ -647,11 +666,15 @@ export default function BattlePage() {
 
     return () => {
       console.log('Cleaning up battle subscriptions');
+      subscriptionsSetupRef.current = false;
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
       clearInterval(pollInterval);
       supabase.removeChannel(battleChannel);
       supabase.removeChannel(dbChannel);
     };
-  }, [battleId, user, supabase, fetchCardDetails, fetchBattleData, battle, player1Card, player2Card]);
+  }, [battleId, user, supabase, fetchCardDetails, fetchBattleData]);
   
   // We no longer need to trigger battle resolution from the client side
   // The Postgres database trigger automatically calls the resolve-battle Edge Function
@@ -659,6 +682,11 @@ export default function BattlePage() {
   useEffect(() => {
     // Add more detailed logging of battle status changes
     console.log(`Battle status changed in component state: ${battle?.status}`);
+    
+    // Reset resolution flag when battle changes to prevent persistence across battles
+    if (battle?.status === 'active') {
+      setHasAttemptedResolution(false);
+    }
     
     if (battle?.status === 'cards_revealed' && battle.id) {
       console.log('Battle status is cards_revealed. Waiting for server-side resolution...');
@@ -700,6 +728,8 @@ export default function BattlePage() {
   }, [battle?.status]);
 
   // Auto-resolve battle when both players have submitted cards - with proper delay for cards_revealed phase
+  const [hasAttemptedResolution, setHasAttemptedResolution] = useState(false);
+  
   useEffect(() => {
     const autoResolveBattle = async () => {
       console.log('Auto-resolve check triggered');
@@ -724,10 +754,13 @@ export default function BattlePage() {
         return;
       }
       
-      // Only try to resolve if battle is still in cards_revealed state
-      if (battle.status === 'cards_revealed') {
+      // Only try to resolve if battle is still in cards_revealed state and we haven't attempted resolution yet
+      if (battle.status === 'cards_revealed' && !hasAttemptedResolution) {
         console.log('✅ Both players have submitted cards and battle is cards_revealed');
         console.log('⏱️ Waiting 4 seconds to allow players to see the revealed cards...');
+        
+        // Mark that we've attempted resolution to prevent multiple attempts
+        setHasAttemptedResolution(true);
         
         // Wait 4 seconds to allow players to see the revealed cards
         await new Promise(resolve => setTimeout(resolve, 4000));
@@ -750,50 +783,58 @@ export default function BattlePage() {
             return;
           }
           
-          console.log('🎯 Now calling resolve-battle-v2 after delay...');
+          console.log('🎯 Now calling resolve-battle after delay...');
           
-          const { data, error } = await supabase.functions.invoke('resolve-battle-v2', {
-            body: { battle_id: battle.id }
-          });
-          
-          if (error) {
-            console.error('Error calling resolve-battle-v2:', error);
-            // Fallback to original function if v2 fails
-            try {
-              const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('resolve-battle', {
-                body: { battle_id: battle.id }
-              });
-              
-              if (fallbackError) {
-                console.error('Both resolve functions failed:', fallbackError);
-              } else {
-                console.log('Battle resolved successfully with fallback:', fallbackData);
+          try {
+            const { data, error } = await supabase.functions.invoke('resolve-battle', {
+              body: { battle_id: battle.id }
+            });
+            
+            if (error) {
+              console.error('Error calling resolve-battle:', error);
+              // Log the specific error details for debugging
+              if (error.message) {
+                console.error('Error message:', error.message);
               }
-            } catch (fallbackErr) {
-              console.error('Fallback function also failed:', fallbackErr);
+              if (error.details) {
+                console.error('Error details:', error.details);
+              }
+            } else {
+              console.log('Battle resolved successfully:', data);
             }
-          } else {
-            console.log('Battle resolved successfully with v2:', data);
+          } catch (err) {
+            console.error('Error invoking resolve-battle function:', err);
+            // Log the specific error for debugging
+            if (err instanceof Error) {
+              console.error('Error details:', err.message);
+            }
           }
         } catch (err) {
-          console.error('Error invoking resolve-battle-v2 function:', err);
+          console.error('Error invoking resolve-battle function:', err);
           // Log the specific error for debugging
           if (err instanceof Error) {
             console.error('Error details:', err.message);
           }
         }
       } else {
-        console.log(`Battle status is ${battle.status}, not cards_revealed`);
+        if (hasAttemptedResolution) {
+          console.log('Resolution already attempted for this battle');
+        } else {
+          console.log(`Battle status is ${battle.status}, not cards_revealed`);
+        }
       }
     };
     
-    // Only trigger auto-resolve if we're in the right state
-    if (battle?.status === 'cards_revealed' && selection?.player1_card_id && selection?.player2_card_id) {
+    // Only trigger auto-resolve if we're in the right state and haven't attempted resolution
+    if (battle?.status === 'cards_revealed' && 
+        selection?.player1_card_id && 
+        selection?.player2_card_id && 
+        !hasAttemptedResolution) {
       console.log('🚀 Starting delayed auto-resolve process...');
       autoResolveBattle();
     }
     
-  }, [battle, selection, battle?.status, selection?.player1_card_id, selection?.player2_card_id, battle?.id, supabase]);
+  }, [battle?.status, selection?.player1_card_id, selection?.player2_card_id, hasAttemptedResolution, supabase]);
 
   const renderContent = () => {
     if (loading) {
@@ -982,8 +1023,8 @@ export default function BattlePage() {
         player2Card={player2Card} 
         onResolveBattle={() => {
           if (battle.id) {
-            console.log('Explicitly calling resolve-battle-v2 for in_progress state');
-            supabase.functions.invoke('resolve-battle-v2', {
+            console.log('Explicitly calling resolve-battle for in_progress state');
+            supabase.functions.invoke('resolve-battle', {
               body: { battle_id: battle.id }
             })
             .then(({ data, error }) => {
@@ -1119,14 +1160,7 @@ export default function BattlePage() {
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
-            {battle?.status === 'cards_revealed' && (
-              <button
-                onClick={triggerAutoResolve}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-              >
-                Force Resolve
-              </button>
-            )}
+            {/* Manual resolve button removed - auto-resolve is now working properly */}
           </div>
         </div>
         <div className="flex flex-col lg:flex-row gap-4">

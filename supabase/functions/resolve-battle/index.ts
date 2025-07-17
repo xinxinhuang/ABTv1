@@ -156,17 +156,7 @@ serve(async (req: Request) => {
     
     const { data: challengerCard, error: challengerCardError } = await supabase
       .from("player_cards")
-      .select(`
-        id, 
-        player_id,
-        cards:card_id (
-          id, 
-          name, 
-          rarity, 
-          type, 
-          attributes
-        )
-      `)
+      .select("id, player_id, card_name, card_type, rarity, attributes")
       .eq("id", challengerCardId)
       .single();
       
@@ -183,17 +173,7 @@ serve(async (req: Request) => {
     
     const { data: opponentCard, error: opponentCardError } = await supabase
       .from("player_cards")
-      .select(`
-        id, 
-        player_id,
-        cards:card_id (
-          id, 
-          name, 
-          rarity, 
-          type, 
-          attributes
-        )
-      `)
+      .select("id, player_id, card_name, card_type, rarity, attributes")
       .eq("id", opponentCardId)
       .single();
       
@@ -214,9 +194,19 @@ serve(async (req: Request) => {
     let winnerId: string | null = null;
     let explanation = "";
     
-    // Extract actual card data
-    const player1CardData = challengerCard.cards;
-    const player2CardData = opponentCard.cards;
+    // Extract actual card data (data is stored directly in player_cards table)
+    const player1CardData = {
+      name: challengerCard.card_name,
+      type: challengerCard.card_type,
+      rarity: challengerCard.rarity,
+      attributes: challengerCard.attributes
+    };
+    const player2CardData = {
+      name: opponentCard.card_name,
+      type: opponentCard.card_type,
+      rarity: opponentCard.rarity,
+      attributes: opponentCard.attributes
+    };
     
     // Type advantage check (Rock-Paper-Scissors style)
     if (player1CardData.type === player2CardData.type) {
