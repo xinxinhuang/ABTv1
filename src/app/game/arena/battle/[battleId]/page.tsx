@@ -543,84 +543,12 @@ export default function BattlePage() {
     // The realtime subscription will handle updating the state from the database.
     console.log('Card selection confirmed in battle page component');
   };
+// Manual trigger function removed - auto-resolve is now working properly
 
   // Handle manual refresh
   const handleRefresh = useCallback(async () => {
     console.log('Manual refresh triggered');
-    setLoading(true);
-    try {
-      const { data: battleData, error: battleError } = await supabase
-        .from('battle_instances')
-        .select('*')
-        .eq('id', battleId)
-        .single();
-
-      if (battleError || !battleData) throw new Error('Battle not found');
-      setBattle(battleData);
-
-      const { data: selectionData, error: selectionError } = await supabase
-        .from('battle_selections')
-        .select('*')
-        .eq('battle_id', battleId)
-        .maybeSingle();
-
-      if (selectionError && selectionError.code !== 'PGRST116') {
-        console.error('Database error fetching battle selection:', selectionError);
-        // Only set error state for actual database errors, not expected null data
-        if (battleData.status === 'cards_revealed' || battleData.status === 'completed') {
-          console.error('Critical: Selection data missing when it should exist');
-        }
-      } else if (selectionData) {
-        setSelection(selectionData);
-        
-        // Set player and opponent selection status
-        if (user && battleData) {
-          const isChallenger = user.id === battleData.challenger_id;
-          const hasSelected = isChallenger ? !!selectionData.player1_card_id : !!selectionData.player2_card_id;
-          const opponentSelected = isChallenger ? !!selectionData.player2_card_id : !!selectionData.player1_card_id;
-          
-          console.log(`Player (${isChallenger ? 'challenger' : 'opponent'}) has selected: ${hasSelected}`);
-          console.log(`Opponent has selected: ${opponentSelected}`);
-          
-          setPlayerHasSelectedCard(hasSelected);
-          setOpponentHasSelectedCard(opponentSelected);
-          
-          if (opponentSelected) {
-            setLastUpdateTime(new Date().toLocaleTimeString());
-          }
-        }
-        
-        // Use the fetchCardDetails function to get card information
-        // Only fetch card details if we don't have both cards yet
-        if (!player1Card || !player2Card) {
-          await fetchCardDetails(selectionData);
-        } else {
-          console.log('Already have both cards, skipping card details fetch');
-        }
-      } else {
-        // Only show warning if battle is in a state where selection data should exist
-        if (battleData.status === 'cards_revealed' || battleData.status === 'completed') {
-          console.warn('No selection data found - this may indicate a database issue');
-        } else {
-          console.log('No selection data found - this is expected during active battle phase');
-        }
-        setSelection(null);
-      }
-    } catch (err) {
-      console.error('Error fetching battle data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [battleId, user, supabase, fetchCardDetails, player1Card, player2Card]);
-
-<<<<<<< HEAD
-  // Manual trigger function removed - auto-resolve is now working properly
-
-  // Handle manual refresh
-  const handleRefresh = useCallback(async () => {
-    console.log('Manual refresh triggered');
-    await fetchBattleData(true);
-  }, [fetchBattleData]);
+  }, []);
 
   useEffect(() => {
     if (!battleId || !user) return;
@@ -975,8 +903,6 @@ export default function BattlePage() {
     
   }, [battle?.status, selection?.player1_card_id, selection?.player2_card_id, hasAttemptedResolution, supabase]);
 
-=======
->>>>>>> 9ff5ad6 (battle and lobby fix)
   const renderContent = () => {
     if (loading) {
       return <div className="text-center p-8"><Loader2 className="mx-auto h-12 w-12 animate-spin" /> Loading Battle...</div>;
@@ -1329,15 +1255,6 @@ export default function BattlePage() {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">Battle Arena - {battle?.id}</h1>
           <div className="flex gap-2">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-=======
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Battle Arena - {battle?.id}</h1>
-        <div className="flex gap-2">
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -1393,14 +1310,14 @@ export default function BattlePage() {
                 }
               }}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
->>>>>>> 9ff5ad6 (battle and lobby fix)
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
-            {/* Manual resolve button removed - auto-resolve is now working properly */}
-          </div>
+          )}
+          {/* Manual resolve button removed - auto-resolve is now working properly */}
         </div>
+      </div>
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="w-full lg:w-3/4">
             {renderContent()}
