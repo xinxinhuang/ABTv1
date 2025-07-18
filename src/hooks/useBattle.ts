@@ -13,8 +13,8 @@ import { determineBattleWinner } from '@/lib/battle/battleLogic';
 // Type definitions (can be moved to a central types file later)
 interface BattleInstance {
   id: string;
-  player1_id: string;
-  player2_id: string | null;
+  challenger_id: string;
+  opponent_id: string | null;
   status: 'pending' | 'selecting' | 'active' | 'completed';
   winner_id: string | null;
   created_at: string;
@@ -60,7 +60,11 @@ export const useBattle = (battleId: string) => {
   const handleBattleComplete = useCallback(async (result: BattleResult) => {
     if (!user || !battle || !selectedCard || !opponentCard || opponentCard.id === 'selected') return;
 
-    const winnerId = result.winner === 'player1' ? battle.player1_id : (result.winner === 'player2' ? battle.player2_id : null);
+    const winnerId = result.winner === 'player1'
+      ? battle.challenger_id
+      : result.winner === 'player2'
+        ? battle.opponent_id
+        : null;
     
     try {
       // Mark battle as completed with winner
@@ -183,11 +187,11 @@ export const useBattle = (battleId: string) => {
     setBattle(battleData);
 
     // --- Data Fetching Logic ---
-    const { data: p1Profile } = await supabase.from('profiles').select('id, username, avatar_url').eq('id', battleData.player1_id).single();
+    const { data: p1Profile } = await supabase.from('profiles').select('id, username, avatar_url').eq('id', battleData.challenger_id).single();
     setPlayer1Profile(p1Profile);
 
-    if (battleData.player2_id) {
-      const { data: p2Profile } = await supabase.from('profiles').select('id, username, avatar_url').eq('id', battleData.player2_id).single();
+    if (battleData.opponent_id) {
+      const { data: p2Profile } = await supabase.from('profiles').select('id, username, avatar_url').eq('id', battleData.opponent_id).single();
       setPlayer2Profile(p2Profile);
     }
 
@@ -240,7 +244,9 @@ export const useBattle = (battleId: string) => {
           const card = await fetchCardSafely(userBattleCard.card_id);
           setSelectedCard(card);
         }
-        const opponentId = session.user.id === battleData.player1_id ? battleData.player2_id : battleData.player1_id;
+        const opponentId = session.user.id === battleData.challenger_id
+          ? battleData.opponent_id
+          : battleData.challenger_id;
         const opponentBattleCard = battleCards.find((bc: BattleCard) => bc.player_id === opponentId);
         if (opponentBattleCard) {
           setOpponentCard({ id: 'selected' });
@@ -252,7 +258,9 @@ export const useBattle = (battleId: string) => {
       const battleCards: BattleCard[] = await fetchBattleCardsSafely(battleId);
       if (battleCards && battleCards.length === 2) {
         const userBattleCard = battleCards.find((bc: BattleCard) => bc.player_id === session.user.id);
-        const opponentId = session.user.id === battleData.player1_id ? battleData.player2_id : battleData.player1_id;
+        const opponentId = session.user.id === battleData.challenger_id
+          ? battleData.opponent_id
+          : battleData.challenger_id;
         const opponentBattleCard = battleCards.find((bc: BattleCard) => bc.player_id === opponentId);
 
         if (userBattleCard && opponentBattleCard) {
@@ -265,8 +273,12 @@ export const useBattle = (battleId: string) => {
 
           if (pCard && oCard && user && battleData.status === 'active') {
             const result = determineBattleWinner(pCard, oCard);
-            const battleResultWinner = result.winner === 'draw' ? 'draw' : 
-                                     (result.winner === 'challenger' && user.id === battleData.player1_id) || (result.winner === 'opponent' && user.id !== battleData.player1_id) ? 'player1' : 'player2';
+            const battleResultWinner = result.winner === 'draw'
+              ? 'draw'
+              : (result.winner === 'challenger' && user.id === battleData.challenger_id) ||
+                (result.winner === 'opponent' && user.id !== battleData.challenger_id)
+                  ? 'player1'
+                  : 'player2';
 
             await handleBattleComplete({ winner: battleResultWinner, message: result.message });
           }
