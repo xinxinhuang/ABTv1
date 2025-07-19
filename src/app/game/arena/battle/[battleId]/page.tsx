@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -19,44 +19,18 @@ export default function BattlePage() {
   const { battleId } = useParams();
   const { user } = useUser();
   const router = useRouter();
-  const supabase = createClient();
 
   // Convert battleId to string
   const battleIdString = Array.isArray(battleId) ? battleId[0] : battleId || '';
 
   // State for UI interactions
   const [refreshing, setRefreshing] = useState(false);
-  const [checkingSelection, setCheckingSelection] = useState(true);
-  const [playerHasSelected, setPlayerHasSelected] = useState(false);
-  const [opponentHasSelected, setOpponentHasSelected] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
 
   // Custom hooks for battle state management
   const { battle, selection, loading, error, refresh } = useBattleData(battleIdString);
   const { player1Card, player2Card, cardsLoading, refetchCards } = useCardFetching(battle, selection, user);
   const { triggerResolution, isResolving, resolutionError, autoTriggerResolution } = useBattleResolution(battle, selection);
   const { seconds: countdownSeconds, start: startCountdown } = useCountdown();
-
-  // Update selection status when data changes
-  useEffect(() => {
-    if (!user || !battle || !selection) {
-      setPlayerHasSelected(false);
-      setOpponentHasSelected(false);
-      return;
-    }
-
-    const isChallenger = user.id === battle.challenger_id;
-    const hasSelected = isChallenger ? !!selection.player1_card_id : !!selection.player2_card_id;
-    const opponentSelected = isChallenger ? !!selection.player2_card_id : !!selection.player1_card_id;
-
-    setPlayerHasSelected(hasSelected);
-    setOpponentHasSelected(opponentSelected);
-    setCheckingSelection(false);
-
-    if (opponentSelected) {
-      setLastUpdateTime(new Date().toLocaleTimeString());
-    }
-  }, [user, battle, selection]);
 
   // Track if countdown has been started for this battle
   const countdownStartedRef = useRef<Set<string>>(new Set());
@@ -73,50 +47,11 @@ export default function BattlePage() {
       countdownStartedRef.current.add(battle.id);
 
       startCountdown(8, async () => {
-        console.log('⏰ Countdown completed, triggering resolution');
-
-        // Double-check battle status before attempting resolution
-        try {
-          const { data: currentBattle, error: checkError } = await supabase
-            .from('battle_instances')
-            .select('status')
-            .eq('id', battle.id)
-            .single();
-
-          if (checkError || !currentBattle) {
-            console.error('Error checking battle status:', checkError);
-            return;
-          }
-
-          if (currentBattle.status === 'completed') {
-            console.log('Battle already completed by another player, skipping resolution');
-            // Just refresh to show the completed state
-            setTimeout(() => refresh(), 100);
-            return;
-          }
-
-          // Battle is still in cards_revealed state, proceed with resolution
-          const { data, error } = await supabase.functions.invoke('resolve-battle-v2', {
-            body: { battle_id: battle.id }
-          });
-
-          if (error) {
-            console.error('Error resolving battle:', error);
-            // Even if resolution fails, refresh to get latest state
-            setTimeout(() => refresh(), 500);
-          } else {
-            console.log('✅ Battle resolved successfully:', data);
-            // Force refresh after resolution
-            setTimeout(() => refresh(), 500);
-          }
-        } catch (err) {
-          console.error('Error in resolution process:', err);
-          // Always refresh to get latest state
-          setTimeout(() => refresh(), 500);
-        }
+        console.log('⏰ Countdown completed, triggering auto-resolution');
+        await autoTriggerResolution();
       });
     }
-  }, [battle?.status, battle?.id, selection?.player1_card_id, selection?.player2_card_id, startCountdown, supabase, refresh]);
+  }, [battle?.id, battle?.status, selection?.player1_card_id, selection?.player2_card_id, startCountdown, autoTriggerResolution]);
 
   // Fetch initial data
   useEffect(() => {
@@ -125,126 +60,102 @@ export default function BattlePage() {
     }
   }, [battleIdString, user, refresh]);
 
-  // Refetch cards when selection changes
-  useEffect(() => {
-    if (selection && (selection.player1_card_id || selection.player2_card_id)) {
-      refetchCards();
-    }
-  }, [selection, refetchCards]);
-
-  // Real-time subscription callbacks
-  const subscriptionCallbacks = {
-    onBattleUpdate: useCallback((updatedBattle: any) => {
-      console.log('📡 Battle updated via subscription:', updatedBattle);
-      // Force immediate refresh when battle status changes
-      setTimeout(() => refresh(), 100);
-    }, [refresh]),
-
-    onSelectionUpdate: useCallback((updatedSelection: any) => {
-      console.log('📡 Selection updated via subscription:', updatedSelection);
-      setTimeout(() => refresh(), 100);
-    }, [refresh]),
-
-    onCardSubmitted: useCallback((payload: any) => {
-      console.log('📡 Card submitted via broadcast:', payload);
-      setTimeout(() => refresh(), 100);
-    }, [refresh]),
-
-    onBattleStatusChange: useCallback((payload: any) => {
-      console.log('📡 Battle status changed via broadcast:', payload);
-      setTimeout(() => refresh(), 100);
-    }, [refresh]),
-  };
-
-  // Set up real-time subscriptions
-  const { isConnected, subscriptionError } = useBattleSubscriptions(
-    battleIdString,
-    user,
-    subscriptionCallbacks
-  );
-
-  // Handle card selection
-  const handleCardSelection = useCallback(async (cardId: string) => {
-    if (!user || !battle || playerHasSelected) return;
-
-    try {
-      console.log(`Player ${user.id} selected card ${cardId} for battle ${battle.id}`);
-      setPlayerHasSelected(true);
-
-      // The CardSelectionGrid component handles the actual submission
-      // We just update the UI state here
-      setTimeout(() => {
-        refresh();
-      }, 1000);
-
-    } catch (error) {
-      console.error('Error handling card selection:', error);
-      setPlayerHasSelected(false);
-    }
-  }, [user, battle, playerHasSelected, refresh]);
-
   // Handle manual refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await refresh();
-      if (selection) {
-        await refetchCards();
-      }
-    } catch (error) {
-      console.error('Error refreshing battle data:', error);
+      await refetchCards();
+    } catch (err) {
+      console.error('Error during manual refresh:', err);
     } finally {
       setRefreshing(false);
     }
-  }, [refresh, refetchCards, selection]);
+  }, [refresh, refetchCards]);
 
-  // Handle manual battle resolution
-  const handleResolveBattle = useCallback(async () => {
-    if (!battle?.id) return;
+  // Handle card selection confirmation
+  const handleSelectionConfirmed = useCallback(async (cardId: string) => {
+    if (!user || !battle || !cardId) return;
+    console.log(`Player ${user.id} selected card ${cardId} for battle ${battle.id}`);
+    // The CardSelectionGrid component handles the actual submission
+    // Real-time subscriptions will update the state
+  }, [user, battle]);
 
-    console.log('Manually triggering battle resolution for battle:', battle.id);
-    await triggerResolution();
-  }, [battle?.id, triggerResolution]);
+  // Check if both players have submitted their cards
+  const bothPlayersSubmitted = useMemo(() => {
+    return selection?.player1_card_id && selection?.player2_card_id;
+  }, [selection]);
 
-  // Navigation handlers
-  const handleReturnToGame = useCallback(() => {
-    router.push('/game');
-  }, [router]);
+  // Track if the current user has submitted their card
+  const hasSubmittedCard = useMemo(() => {
+    if (!user || !selection || !battle) return false;
+    const isChallenger = user.id === battle.challenger_id;
+    return isChallenger ? !!selection.player1_card_id : !!selection.player2_card_id;
+  }, [selection, user, battle]);
 
-  const handleFindNewBattle = useCallback(() => {
-    router.push('/game/arena/lobby');
-  }, [router]);
-
-  // Redirect if user not authenticated
-  useEffect(() => {
-    if (!user && !loading) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  // Show loading state
-  if (loading || !user) {
+  // Render loading state
+  if (loading) {
     return (
-      <div className="content-height">
-        <div className="text-center p-8">
-          <Loader2 className="mx-auto h-12 w-12 animate-spin" />
-          <p className="mt-4">Loading Battle...</p>
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-yellow-400 mb-4" />
+          <p className="text-gray-300">Loading battle...</p>
         </div>
       </div>
     );
   }
 
-  // Show error state
+  // Render error state
   if (error) {
     return (
-      <div className="content-height">
-        <div className="p-4 text-xl font-bold text-red-500">
-          Error: {error}
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-400 text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-red-400 mb-2">Battle Error</h1>
+          <p className="text-gray-300 mb-6">{error}</p>
           <button
-            onClick={handleRefresh}
-            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            onClick={() => router.push('/game/arena')}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors"
           >
-            Retry
+            Return to Arena
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Render battle not found
+  if (!battle) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-gray-400 text-6xl mb-4">🔍</div>
+          <h1 className="text-2xl font-bold text-gray-400 mb-2">Battle Not Found</h1>
+          <p className="text-gray-300 mb-6">The battle you're looking for doesn't exist or has been removed.</p>
+          <button
+            onClick={() => router.push('/game/arena')}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Return to Arena
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Render unauthorized access
+  if (!user || (user.id !== battle.challenger_id && user.id !== battle.opponent_id)) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-400 text-6xl mb-4">🚫</div>
+          <h1 className="text-2xl font-bold text-red-400 mb-2">Access Denied</h1>
+          <p className="text-gray-300 mb-6">You don't have permission to view this battle.</p>
+          <button
+            onClick={() => router.push('/game/arena')}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Return to Arena
           </button>
         </div>
       </div>
@@ -252,63 +163,59 @@ export default function BattlePage() {
   }
 
   return (
-    <div className="content-height">
-      <div className="p-4">
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">Battle Arena - {battle?.id}</h1>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-yellow-400">Battle Arena</h1>
+            <p className="text-gray-400">Battle ID: {battle.id.slice(0, 8)}...</p>
+          </div>
+          <div className="flex items-center gap-4">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
             </button>
-
-            {/* Manual resolve button for development */}
-            {process.env.NODE_ENV === 'development' && battle?.status === 'cards_revealed' && (
-              <button
-                onClick={handleResolveBattle}
-                disabled={isResolving}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 text-sm"
-              >
-                {isResolving ? 'Resolving...' : 'Force Resolve'}
-              </button>
-            )}
+            <button
+              onClick={() => router.push('/game/arena')}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Back to Arena
+            </button>
           </div>
         </div>
 
-        {/* Debug Panel - Development Only */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 p-4 bg-gray-800 rounded-lg border border-gray-600">
-            <h3 className="text-sm font-bold text-yellow-400 mb-2">🔧 Debug Info</h3>
-            <div className="grid grid-cols-2 gap-4 text-xs">
+        {/* Battle Status */}
+        <div className="mb-6">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between">
               <div>
-                <p><strong>Battle Status:</strong> {battle?.status || 'N/A'}</p>
-                <p><strong>Battle ID:</strong> {battle?.id || 'N/A'}</p>
-                <p><strong>User ID:</strong> {user?.id?.slice(0, 8) || 'N/A'}...</p>
-                <p><strong>Is Challenger:</strong> {user?.id === battle?.challenger_id ? 'Yes' : 'No'}</p>
-                <p><strong>Connected:</strong> {isConnected ? '✅' : '❌'}</p>
+                <span className="text-sm text-gray-400">Status:</span>
+                <span className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${battle.status === 'active' ? 'bg-blue-900 text-blue-300' :
+                  battle.status === 'cards_revealed' ? 'bg-yellow-900 text-yellow-300' :
+                    battle.status === 'completed' ? 'bg-green-900 text-green-300' :
+                      'bg-gray-700 text-gray-300'
+                  }`}>
+                  {battle.status.replace('_', ' ').toUpperCase()}
+                </span>
               </div>
-              <div>
-                <p><strong>Player1 Card:</strong> {selection?.player1_card_id ? '✅' : '❌'}</p>
-                <p><strong>Player2 Card:</strong> {selection?.player2_card_id ? '✅' : '❌'}</p>
-                <p><strong>Cards Loading:</strong> {cardsLoading ? '⏳' : '✅'}</p>
-                <p><strong>Countdown:</strong> {countdownSeconds > 0 ? `${countdownSeconds}s` : 'N/A'}</p>
-                <p><strong>Resolution Error:</strong> {resolutionError ? '❌' : '✅'}</p>
-              </div>
+              {battle.status === 'cards_revealed' && countdownSeconds > 0 && (
+                <div className="text-yellow-400 font-bold">
+                  Resolving in {countdownSeconds}s...
+                </div>
+              )}
             </div>
-            {subscriptionError && (
-              <p className="text-red-400 text-xs mt-2">Subscription Error: {subscriptionError}</p>
-            )}
           </div>
-        )}
+        </div>
 
-        {/* Main Content */}
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="w-full lg:w-3/4">
+        {/* Main Battle Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Battle Phase Renderer */}
+          <div className="lg:col-span-3">
             <BattlePhaseRenderer
               battle={battle}
               selection={selection}
@@ -316,20 +223,61 @@ export default function BattlePage() {
               player2Card={player2Card}
               user={user}
               countdownSeconds={countdownSeconds}
-              checkingSelection={checkingSelection}
-              playerHasSelected={playerHasSelected}
-              opponentHasSelected={opponentHasSelected}
-              lastUpdateTime={lastUpdateTime}
-              onCardSelection={handleCardSelection}
-              onResolveBattle={handleResolveBattle}
-              onReturnToGame={handleReturnToGame}
-              onFindNewBattle={handleFindNewBattle}
+              onCardSelection={handleSelectionConfirmed}
+              onResolveBattle={triggerResolution}
+              onReturnToGame={() => router.push('/game/arena')}
+              onFindNewBattle={() => router.push('/game/arena')}
             />
           </div>
 
-          {/* Game Log Sidebar */}
-          <div className="w-full lg:w-1/4">
-            {battle && <GameLog battleState={battle} />}
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="space-y-6">
+              {/* Battle Info */}
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-yellow-400 mb-3">Battle Info</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Challenger:</span>
+                    <span className="text-white">
+                      {user.id === battle.challenger_id ? 'You' : 'Opponent'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Opponent:</span>
+                    <span className="text-white">
+                      {user.id === battle.opponent_id ? 'You' : 'Challenger'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Cards Submitted:</span>
+                    <span className="text-white">
+                      {bothPlayersSubmitted ? '2/2' : hasSubmittedCard ? '1/2' : '0/2'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Game Log */}
+              <GameLog battleId={battle.id} />
+
+              {/* Debug Info (Development Only) */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-purple-400 mb-3">Debug Info</h3>
+                  <div className="space-y-2 text-xs text-gray-400">
+                    <div>Battle Status: {battle.status}</div>
+                    <div>Cards Loading: {cardsLoading ? 'Yes' : 'No'}</div>
+                    <div>Is Resolving: {isResolving ? 'Yes' : 'No'}</div>
+                    <div>Player1 Card: {player1Card ? 'Loaded' : 'Missing'}</div>
+                    <div>Player2 Card: {player2Card ? 'Loaded' : 'Missing'}</div>
+                    {resolutionError && (
+                      <div className="text-red-400">Resolution Error: {resolutionError}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
