@@ -89,8 +89,8 @@ export const useBattleResolution = (
         return;
       }
 
-      // Call the resolve-battle-v2 Edge Function
-      const { data, error } = await supabase.functions.invoke('resolve-battle-v2', {
+      // Call the resolve-battle Edge Function
+      const { data, error } = await supabase.functions.invoke('resolve-battle', {
         body: { battle_id: battle.id }
       });
 

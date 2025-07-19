@@ -95,20 +95,18 @@ serve(async (req: Request) => {
     console.log(`Battle status is correct: ${battle.status}, proceeding with resolution`);
     console.log(`Battle participants: Challenger ${battle.challenger_id}, Opponent ${battle.opponent_id}`);
 
-    // 2. Get the player cards from battle_selections table
+    // 2. Get the player cards from battle_cards table
     console.log("Fetching player card selections");
     
-    // Get the single consolidated row from battle_selections
-    const { data: selection, error: selectionError } = await supabase
-      .from("battle_selections")
+    const { data: battleCards, error: cardsError } = await supabase
+      .from("battle_cards")
       .select("*")
-      .eq("battle_id", battleId)
-      .single();
+      .eq("battle_id", battleId);
     
-    if (selectionError || !selection) {
-      console.error("Error fetching battle selection:", selectionError);
+    if (cardsError || !battleCards) {
+      console.error("Error fetching battle cards:", cardsError);
       return new Response(
-        JSON.stringify({ error: "Failed to fetch battle selection", details: selectionError }),
+        JSON.stringify({ error: "Failed to fetch battle cards", details: cardsError }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -117,8 +115,8 @@ serve(async (req: Request) => {
     }
     
     // Make sure both players have submitted their card selections
-    if (!selection.player1_card_id || !selection.player2_card_id) {
-      console.error("Incomplete battle selections:", selection);
+    if (battleCards.length !== 2) {
+      console.error("Incomplete battle cards:", battleCards);
       return new Response(
         JSON.stringify({ error: "Both players must select cards to resolve the battle" }),
         {
@@ -128,39 +126,37 @@ serve(async (req: Request) => {
       );
     }
     
-    // Map selection fields based on player roles
-    const challengerCardId = selection.player1_id === battle.challenger_id
-      ? selection.player1_card_id
-      : selection.player2_card_id;
-      
-    const opponentCardId = selection.player1_id === battle.opponent_id
-      ? selection.player1_card_id
-      : selection.player2_card_id;
+    // Find cards for each player
+    const challengerCard = battleCards.find(card => card.player_id === battle.challenger_id);
+    const opponentCard = battleCards.find(card => card.player_id === battle.opponent_id);
     
-    console.log(`Challenger card ID: ${challengerCardId}`);
-    console.log(`Opponent card ID: ${opponentCardId}`);
-    
-    if (!challengerCardId || !opponentCardId) {
-      console.error("Unable to determine card IDs for players");
+    if (!challengerCard || !opponentCard) {
+      console.error("Unable to find cards for both players");
       return new Response(
-        JSON.stringify({ error: "Unable to determine card IDs for players" }),
+        JSON.stringify({ error: "Unable to find cards for both players" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
+    
+    const challengerCardId = challengerCard.card_id;
+    const opponentCardId = opponentCard.card_id;
+    
+    console.log(`Challenger card ID: ${challengerCardId}`);
+    console.log(`Opponent card ID: ${opponentCardId}`);
 
     // 3. Fetch the detailed card information for each player's selection
     console.log("Fetching card details");
     
-    const { data: challengerCard, error: challengerCardError } = await supabase
+    const { data: challengerCardData, error: challengerCardError } = await supabase
       .from("player_cards")
       .select("id, player_id, card_name, card_type, rarity, attributes")
       .eq("id", challengerCardId)
       .single();
       
-    if (challengerCardError || !challengerCard) {
+    if (challengerCardError || !challengerCardData) {
       console.error("Error fetching challenger card:", challengerCardError);
       return new Response(
         JSON.stringify({ error: "Failed to fetch challenger's card", details: challengerCardError }),
@@ -171,13 +167,13 @@ serve(async (req: Request) => {
       );
     }
     
-    const { data: opponentCard, error: opponentCardError } = await supabase
+    const { data: opponentCardData, error: opponentCardError } = await supabase
       .from("player_cards")
       .select("id, player_id, card_name, card_type, rarity, attributes")
       .eq("id", opponentCardId)
       .single();
       
-    if (opponentCardError || !opponentCard) {
+    if (opponentCardError || !opponentCardData) {
       console.error("Error fetching opponent card:", opponentCardError);
       return new Response(
         JSON.stringify({ error: "Failed to fetch opponent's card", details: opponentCardError }),
@@ -196,16 +192,16 @@ serve(async (req: Request) => {
     
     // Extract actual card data (data is stored directly in player_cards table)
     const player1CardData = {
-      name: challengerCard.card_name,
-      type: challengerCard.card_type,
-      rarity: challengerCard.rarity,
-      attributes: challengerCard.attributes
+      name: challengerCardData.card_name,
+      type: challengerCardData.card_type,
+      rarity: challengerCardData.rarity,
+      attributes: challengerCardData.attributes
     };
     const player2CardData = {
-      name: opponentCard.card_name,
-      type: opponentCard.card_type,
-      rarity: opponentCard.rarity,
-      attributes: opponentCard.attributes
+      name: opponentCardData.card_name,
+      type: opponentCardData.card_type,
+      rarity: opponentCardData.rarity,
+      attributes: opponentCardData.attributes
     };
     
     // Type advantage check (Rock-Paper-Scissors style)
@@ -256,39 +252,10 @@ serve(async (req: Request) => {
       }
     }
 
-    // 5. Record the battle cards in the battle_cards table
-    console.log(`Recording battle cards in battle_cards table`);
-    
-    const { data: battleCardsData, error: battleCardsError } = await supabase
-      .from("battle_cards")
-      .insert([
-        {
-          battle_id: battleId,
-          player_id: battle.challenger_id,
-          card_id: challengerCardId,
-          card_name: player1CardData.name,
-          card_type: player1CardData.type,
-          card_attributes: player1CardData.attributes
-        },
-        {
-          battle_id: battleId,
-          player_id: battle.opponent_id,
-          card_id: opponentCardId,
-          card_name: player2CardData.name,
-          card_type: player2CardData.type,
-          card_attributes: player2CardData.attributes
-        }
-      ])
-      .select();
-      
-    if (battleCardsError) {
-      console.error("Error recording battle cards:", battleCardsError);
-      // Continue with the battle resolution even if recording fails
-      // We don't want to fail the entire battle just because this step failed
-      console.log("Continuing with battle resolution despite error recording battle cards");
-    } else {
-      console.log(`Successfully recorded battle cards:`, battleCardsData);
-    }
+    // 5. Battle cards are already recorded when players selected them
+    // No need to insert again, just log the cards being used
+    console.log(`Using battle cards: Challenger "${player1CardData.name}", Opponent "${player2CardData.name}"`);
+    console.log(`Card types: ${player1CardData.type} vs ${player2CardData.type}`);
     
     // 6. Update the battle instance with the result
     console.log(`Battle winner determined: ${winnerId || 'Draw'}`);

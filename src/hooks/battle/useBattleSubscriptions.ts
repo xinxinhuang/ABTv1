@@ -79,24 +79,27 @@ export const useBattleSubscriptions = (
           }
         });
 
-      // 2. Database changes subscription for battle selections
-      const dbSelectionChannel = supabase
-        .channel(`battle-db-selections:${battleId}`)
+      // 2. Database changes subscription for battle cards
+      const dbCardsChannel = supabase
+        .channel(`battle-db-cards:${battleId}`)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
-          table: 'battle_selections',
+          table: 'battle_cards',
           filter: `battle_id=eq.${battleId}`
         }, (payload) => {
-          console.log('📡 Battle selection updated via DB subscription:', payload.new);
+          console.log('📡 Battle card updated via DB subscription:', payload.new);
           lastUpdateRef.current = new Date().toISOString();
           
-          if (payload.new && callbacksRef.current.onSelectionUpdate) {
-            callbacksRef.current.onSelectionUpdate(payload.new as BattleSelection);
+          // Trigger a selection update callback to refresh the battle data
+          if (callbacksRef.current.onSelectionUpdate) {
+            // We'll need to refetch the full selection data since battle_cards
+            // doesn't directly map to BattleSelection format
+            callbacksRef.current.onSelectionUpdate(null as any);
           }
         })
         .subscribe((status) => {
-          console.log(`Battle selections subscription status: ${status}`);
+          console.log(`Battle cards subscription status: ${status}`);
         });
 
       // 3. Broadcast channel for immediate updates
@@ -123,7 +126,7 @@ export const useBattleSubscriptions = (
         });
 
       // Store channel references for cleanup
-      subscriptionsRef.current = [dbBattleChannel, dbSelectionChannel, broadcastChannel];
+      subscriptionsRef.current = [dbBattleChannel, dbCardsChannel, broadcastChannel];
 
     } catch (error) {
       console.error('Error setting up battle subscriptions:', error);

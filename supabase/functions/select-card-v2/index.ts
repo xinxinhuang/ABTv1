@@ -89,6 +89,12 @@ serve(async (req: Request) => {
 
     console.log(`Processing selection request: Battle ID: ${battle_id}, Player ID: ${resolvedPlayer}, Card ID: ${resolvedCard}`);
     console.log('Full request data:', JSON.stringify(requestData));
+    
+    // Add more detailed logging for debugging
+    console.log('Request validation:');
+    console.log('- battle_id present:', !!battle_id);
+    console.log('- resolvedPlayer present:', !!resolvedPlayer);
+    console.log('- resolvedCard present:', !!resolvedCard);
 
     if (!battle_id || !resolvedPlayer || !resolvedCard) {
       return new Response(
@@ -104,18 +110,22 @@ serve(async (req: Request) => {
     }
 
     // 1. Verify the battle exists and is active
+    console.log("Step 1: Verifying battle exists and is active");
     const { data: battle, error: battleError } = await supabase
       .from("battle_instances")
       .select("*")
       .eq("id", battle_id)
       .single();
 
+    console.log("Battle query result:", { battle, battleError });
+
     if (battleError || !battle) {
       console.error("Error fetching battle:", battleError);
       return new Response(
         JSON.stringify({ 
           error: "Battle not found", 
-          message: "The specified battle does not exist" 
+          message: "The specified battle does not exist",
+          details: battleError?.message || "No battle data returned"
         }),
         {
           status: 404,
@@ -154,6 +164,9 @@ serve(async (req: Request) => {
     }
 
     // 2. Verify the player owns the card
+    console.log("Step 2: Verifying card ownership");
+    console.log(`Checking if player ${resolvedPlayer} owns card ${resolvedCard}`);
+    
     const { data: cardOwnership, error: cardOwnershipError } = await supabase
       .from("player_cards")
       .select("*")
@@ -161,12 +174,15 @@ serve(async (req: Request) => {
       .eq("player_id", resolvedPlayer)
       .single();
 
+    console.log("Card ownership query result:", { cardOwnership, cardOwnershipError });
+
     if (cardOwnershipError || !cardOwnership) {
       console.error("Card ownership verification failed:", cardOwnershipError);
       return new Response(
         JSON.stringify({ 
           error: "Card not owned", 
-          message: "You do not own this card" 
+          message: "You do not own this card",
+          details: cardOwnershipError?.message || "No card ownership data returned"
         }),
         {
           status: 403,
@@ -183,128 +199,39 @@ serve(async (req: Request) => {
     const player1_id = battle.challenger_id;
     const player2_id = battle.opponent_id;
     
-    // 3. Record the card selection using upsert to prevent duplicates
-    // First, check if a selection record already exists
-    const { data: existingSelection, error: existingSelectionError } = await supabase
-      .from("battle_selections")
+    // 3. Check if player has already selected a card for this battle
+    const { data: existingCard, error: existingCardError } = await supabase
+      .from("battle_cards")
       .select("*")
       .eq("battle_id", battle_id)
+      .eq("player_id", resolvedPlayer)
       .maybeSingle();
 
-    console.log('Existing selection record:', existingSelection);
-    
-    // If there was an error or no selection exists, try to create one
-    if ((existingSelectionError && existingSelectionError.code !== 'PGRST116') || !existingSelection) {
-      console.log('No selection record found or error occurred, creating one...');
-      const { error: createError } = await supabase
-        .from("battle_selections")
-        .insert({
-          battle_id,
-          player1_id: battle.challenger_id,
-          player2_id: battle.opponent_id,
-          player1_card_id: null,
-          player2_card_id: null,
-          player1_submitted_at: null,
-          player2_submitted_at: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-        
-      if (createError) {
-        console.error('Error creating initial selection record:', createError);
-        return new Response(
-          JSON.stringify({ 
-            error: "Failed to initialize battle selection",
-            message: "Could not create battle selection record"
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
+    if (existingCard) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Card already selected", 
+          message: "You have already selected a card for this battle" 
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    // Prepare the update data - always include both player IDs for consistency
-    const currentTime = new Date().toISOString();
-    let updateData = {
-      battle_id,
-      player1_id,
-      player2_id,
-      updated_at: currentTime
-    };
-
-    // Set the appropriate card and timestamp based on which player is selecting
-    if (isChallenger) {
-      updateData = {
-        ...updateData,
-        player1_card_id: resolvedCard,
-        player1_submitted_at: currentTime
-      };
-      
-      // If this is the first selection, ensure player2 fields are initialized
-      if (!existingSelection) {
-        updateData = {
-          ...updateData,
-          player2_card_id: null,
-          player2_submitted_at: null
-        };
-      }
-    } else {
-      updateData = {
-        ...updateData,
-        player2_card_id: resolvedCard,
-        player2_submitted_at: currentTime
-      };
-      
-      // If this is the first selection, ensure player1 fields are initialized
-      if (!existingSelection) {
-        updateData = {
-          ...updateData,
-          player1_card_id: null,
-          player1_submitted_at: null
-        };
-      }
-    }
-
-    console.log("Updating battle selection with data:", JSON.stringify(updateData));
-
-    console.log("Upserting battle selection with data:", JSON.stringify(updateData, null, 2));
-    
-    // First try to update the existing record if it exists
-    let { data: selectionData, error: selectionError } = await supabase
-      .from("battle_selections")
-      .upsert(updateData, {
-        onConflict: 'battle_id',
-        returning: "minimal"
-      });
-
-    // If update failed, try to insert a new record
-    if (selectionError) {
-      console.warn("Upsert failed, trying direct insert:", selectionError);
-      
-      // Try to insert a new record with all required fields
-      const insertData = {
-        ...updateData,
-        created_at: currentTime
-      };
-      
-      const { data: insertResult, error: insertError } = await supabase
-        .from("battle_selections")
-        .insert(insertData)
-        .select()
-        .single();
-        
-      if (insertError) {
-        console.error("Insert failed:", insertError);
-        selectionError = insertError;
-      } else {
-        selectionData = insertResult;
-        selectionError = null;
-      }
-    }
+    // 4. Insert the card selection into battle_cards table
+    console.log("Step 3: Recording card selection");
+    const { data: cardSelection, error: selectionError } = await supabase
+      .from("battle_cards")
+      .insert({
+        battle_id,
+        player_id: resolvedPlayer,
+        card_id: resolvedCard,
+        is_hidden: true
+      })
+      .select()
+      .single();
 
     if (selectionError) {
       console.error("Error recording card selection:", selectionError);
@@ -320,18 +247,19 @@ serve(async (req: Request) => {
       );
     }
 
-    // 4. Check if both players have selected cards and update battle status if needed
-    const { data: updatedSelection, error: updatedSelectionError } = await supabase
-      .from("battle_selections")
+    // 5. Check if both players have selected cards
+    const { data: allCards, error: allCardsError } = await supabase
+      .from("battle_cards")
       .select("*")
-      .eq("battle_id", battle_id)
-      .single();
+      .eq("battle_id", battle_id);
 
-    console.log("Updated selection record:", updatedSelection);
+    console.log("All cards for battle:", allCards);
 
-    // IMPORTANT: Explicitly use the admin client with service role key for the update
+    // Check if both players have now selected cards and update battle status
     let battleStatus = "active"; // Default status
-    if (updatedSelection?.player1_card_id && updatedSelection?.player2_card_id) {
+    const bothPlayersSubmitted = allCards && allCards.length === 2;
+    
+    if (bothPlayersSubmitted) {
       console.log("Both players have selected cards. Updating battle status to 'cards_revealed'.");
       
       // Use explicit admin client to update battle status to ensure RLS doesn't block
@@ -358,7 +286,7 @@ serve(async (req: Request) => {
         success: true, 
         message: "Card selection recorded successfully",
         status: battleStatus,
-        both_submitted: updatedSelection?.player1_card_id && updatedSelection?.player2_card_id
+        both_submitted: bothPlayersSubmitted
       }),
       {
         status: 200,

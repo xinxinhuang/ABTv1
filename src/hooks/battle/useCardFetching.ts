@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/types/game';
 import { BattleInstance, BattleSelection } from '@/types/battle';
@@ -50,34 +50,38 @@ export const useCardFetching = (
       if (battle.status === 'completed') {
         const { data: battleCardData, error: battleCardError } = await supabase
           .from('battle_cards')
-          .select(`
-            *,
-            player_cards:card_id (
-              id,
-              card_name,
-              card_type,
-              attributes,
-              rarity,
-              obtained_at
-            )
-          `)
+          .select('*')
           .eq('battle_id', battle.id)
           .eq('player_id', playerId)
           .maybeSingle();
         
-        if (battleCardData && !battleCardError && battleCardData.player_cards) {
-          const cardData = battleCardData.player_cards as any;
-          const card: Card = {
-            id: cardData.id,
-            player_id: playerId,
-            card_name: cardData.card_name,
-            card_type: cardData.card_type,
-            attributes: cardData.attributes || { str: 0, dex: 0, int: 0 },
-            rarity: cardData.rarity,
-            obtained_at: cardData.obtained_at
-          };
-          setter(card);
-          return;
+        if (battleCardData && !battleCardError) {
+          // Check if battle_cards has the card details directly stored
+          if (battleCardData.card_name && battleCardData.card_type) {
+            const card: Card = {
+              id: battleCardData.card_id || cardId,
+              player_id: playerId,
+              card_name: battleCardData.card_name,
+              card_type: battleCardData.card_type,
+              attributes: battleCardData.card_attributes || { str: 0, dex: 0, int: 0 },
+              rarity: battleCardData.rarity || 'bronze',
+              obtained_at: battleCardData.created_at || new Date().toISOString()
+            };
+            setter(card);
+            return;
+          } else {
+            // Fallback: fetch from player_cards using the card_id
+            const { data: cardData, error: cardError } = await supabase
+              .from('player_cards')
+              .select('*')
+              .eq('id', battleCardData.card_id)
+              .single();
+            
+            if (cardData && !cardError) {
+              setter(cardData);
+              return;
+            }
+          }
         }
       }
 
@@ -148,6 +152,21 @@ export const useCardFetching = (
       setCardsLoading(false);
     }
   }, [battle, selection, user, fetchCardForPlayer]);
+
+  // Auto-fetch cards when battle, selection, or user changes
+  useEffect(() => {
+    if (battle && selection && user && (selection.player1_card_id || selection.player2_card_id)) {
+      console.log('Auto-fetching cards due to dependency change');
+      refetchCards();
+    }
+  }, [battle?.id, selection?.player1_card_id, selection?.player2_card_id, user?.id, refetchCards]);
+
+  // Clear cards when battle changes
+  useEffect(() => {
+    setPlayer1Card(null);
+    setPlayer2Card(null);
+    setCardError(null);
+  }, [battle?.id]);
 
   return {
     player1Card,

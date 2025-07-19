@@ -51,19 +51,37 @@ export const useBattleData = (battleId: string): UseBattleDataReturn => {
 
       setBattle(battleData);
 
-      // Fetch battle selection
-      const { data: selectionData, error: selectionError } = await supabase
-        .from('battle_selections')
+      // Fetch battle cards and transform to selection format
+      const { data: cardsData, error: cardsError } = await supabase
+        .from('battle_cards')
         .select('*')
-        .eq('battle_id', battleId)
-        .maybeSingle();
+        .eq('battle_id', battleId);
 
-      if (selectionError && selectionError.code !== 'PGRST116') {
-        console.warn('Error fetching battle selection:', selectionError);
-        // Don't throw here as selection might not exist yet for active battles
+      if (cardsError && cardsError.code !== 'PGRST116') {
+        console.warn('Error fetching battle cards:', cardsError);
       }
 
-      setSelection(selectionData || null);
+      // Transform battle_cards data to match BattleSelection interface
+      let selectionData: BattleSelection | null = null;
+      if (cardsData && cardsData.length > 0) {
+        const player1Card = cardsData.find(card => card.player_id === battleData.challenger_id);
+        const player2Card = cardsData.find(card => card.player_id === battleData.opponent_id);
+        
+        selectionData = {
+          id: battleId, // Use battle_id as selection id
+          battle_id: battleId,
+          player1_id: battleData.challenger_id,
+          player1_card_id: player1Card?.card_id || null,
+          player1_submitted_at: player1Card?.created_at || null,
+          player2_id: battleData.opponent_id,
+          player2_card_id: player2Card?.card_id || null,
+          player2_submitted_at: player2Card?.created_at || null,
+          created_at: battleData.created_at,
+          updated_at: battleData.updated_at || battleData.created_at,
+        };
+      }
+
+      setSelection(selectionData);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
