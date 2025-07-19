@@ -121,6 +121,11 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
       // Check if the response data has an error property
       if (response.data && response.data.error) {
         console.error('Data error:', response.data.error);
+        // Handle the specific case where card is already selected
+        if (response.data.error === 'Card already selected') {
+          setError('You have already selected a card for this battle.');
+          return;
+        }
         throw new Error(response.data.error);
       }
 
@@ -136,20 +141,20 @@ export const CardSelectionGrid = ({ battleId, onSelectionConfirmed }: CardSelect
           player_id: user.id,
           card_id: selectedCard,
           timestamp: new Date().toISOString(),
-          battle_status: response.data?.status || 'active',
+          battle_status: response.data?.status || 'in_progress',
           both_submitted: response.data?.both_submitted || false
         }
       });
       
       // If both players have submitted, broadcast battle update
-      if (response.data?.both_submitted || response.data?.status === 'cards_revealed') {
+      if (response.data?.both_submitted) {
         console.log('🎯 Both players have submitted cards, broadcasting battle update');
         await broadcastChannel.send({
           type: 'broadcast',
           event: 'battle_update',
           payload: {
             battle_id: battleId,
-            status: response.data?.status || 'cards_revealed',
+            status: response.data?.status || 'in_progress',
             both_submitted: true,
             timestamp: new Date().toISOString()
           }

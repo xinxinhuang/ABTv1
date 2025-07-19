@@ -91,11 +91,9 @@ export const useBattleSubscriptions = (
           console.log('📡 Battle card updated via DB subscription:', payload.new);
           lastUpdateRef.current = new Date().toISOString();
           
-          // Trigger a selection update callback to refresh the battle data
-          if (callbacksRef.current.onSelectionUpdate) {
-            // We'll need to refetch the full selection data since battle_cards
-            // doesn't directly map to BattleSelection format
-            callbacksRef.current.onSelectionUpdate(null as any);
+          // Trigger a card submitted callback to refresh the battle data
+          if (callbacksRef.current.onCardSubmitted) {
+            callbacksRef.current.onCardSubmitted(payload);
           }
         })
         .subscribe((status) => {

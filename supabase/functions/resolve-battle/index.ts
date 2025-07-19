@@ -76,13 +76,13 @@ serve(async (req: Request) => {
     }
 
     // Check if the battle is in the correct state to be resolved
-    if (battle.status !== "cards_revealed") {
+    if (battle.status !== "in_progress") {
       console.error(`Battle cannot be resolved. Current status: ${battle.status}`);
       console.error(`Battle ID: ${battle.id}, Challenger: ${battle.challenger_id}, Opponent: ${battle.opponent_id}`);
       return new Response(
         JSON.stringify({ 
           error: "Battle cannot be resolved", 
-          details: `Current status is ${battle.status}, must be 'cards_revealed'`,
+          details: `Current status is ${battle.status}, must be 'in_progress'`,
           battle_id: battle.id
         }),
         {

@@ -34,7 +34,7 @@ serve(async (req: Request) => {
 
     const { data: updatedLobby, error: updateError } = await supabaseAdmin
       .from('battle_instances')
-      .update({ status: 'active' })
+      .update({ status: 'in_progress' })
       .eq('id', lobby_id)
       .select()
       .single();

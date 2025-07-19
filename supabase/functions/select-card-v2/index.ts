@@ -1,7 +1,8 @@
-// deno-lint-ignore-file
-// @ts-nocheck
+/**
+ * Select Card V2 Edge Function - Rebuilt for Battle Arena V2
+ * Enhanced validation for humanoid-only battle system
+ */
 
-// Follow Deno's ES modules pattern
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -33,22 +34,24 @@ serve(async (req: Request) => {
   if (preflightResponse) return preflightResponse;
 
   try {
-    console.log("Select-card-v2 Edge Function triggered");
-    
+    console.log("=== Select-card-v2 Edge Function triggered ===");
+    console.log("Request method:", req.method);
+    console.log("Request URL:", req.url);
+
     // Create Supabase client with service role key (for admin privileges)
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    
+
     // Log environment variable status (without revealing actual values)
     console.log(`SUPABASE_URL available: ${!!supabaseUrl}`);
     console.log(`SUPABASE_SERVICE_ROLE_KEY available: ${!!supabaseKey}`);
-    
+
     if (!supabaseUrl || !supabaseKey) {
       console.error("Missing required environment variables");
       return new Response(
-        JSON.stringify({ 
-          error: "Configuration error", 
-          message: "Server configuration is incomplete. Please contact support." 
+        JSON.stringify({
+          error: "Configuration error",
+          message: "Server configuration is incomplete. Please contact support."
         }),
         {
           status: 500,
@@ -56,7 +59,7 @@ serve(async (req: Request) => {
         }
       );
     }
-    
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Parse request body
@@ -75,7 +78,7 @@ serve(async (req: Request) => {
     }
 
     // Extract and validate required parameters - support both naming conventions
-    const { 
+    const {
       battle_id,
       player_id,     // new parameter name
       user_id,       // old parameter name
@@ -89,18 +92,32 @@ serve(async (req: Request) => {
 
     console.log(`Processing selection request: Battle ID: ${battle_id}, Player ID: ${resolvedPlayer}, Card ID: ${resolvedCard}`);
     console.log('Full request data:', JSON.stringify(requestData));
-    
+
     // Add more detailed logging for debugging
     console.log('Request validation:');
     console.log('- battle_id present:', !!battle_id);
+    console.log('- battle_id value:', battle_id);
     console.log('- resolvedPlayer present:', !!resolvedPlayer);
+    console.log('- resolvedPlayer value:', resolvedPlayer);
     console.log('- resolvedCard present:', !!resolvedCard);
+    console.log('- resolvedCard value:', resolvedCard);
 
     if (!battle_id || !resolvedPlayer || !resolvedCard) {
+      console.error('Missing required parameters:', {
+        battle_id: !!battle_id,
+        resolvedPlayer: !!resolvedPlayer,
+        resolvedCard: !!resolvedCard,
+        requestData
+      });
       return new Response(
-        JSON.stringify({ 
-          error: "Missing required parameters", 
-          message: "battle_id, player_id (or user_id), and card_id (or selected_card_id) are required" 
+        JSON.stringify({
+          error: "Missing required parameters",
+          message: "battle_id, player_id (or user_id), and card_id (or selected_card_id) are required",
+          received: {
+            battle_id: !!battle_id,
+            player_id: !!resolvedPlayer,
+            card_id: !!resolvedCard
+          }
         }),
         {
           status: 400,
@@ -122,8 +139,8 @@ serve(async (req: Request) => {
     if (battleError || !battle) {
       console.error("Error fetching battle:", battleError);
       return new Response(
-        JSON.stringify({ 
-          error: "Battle not found", 
+        JSON.stringify({
+          error: "Battle not found",
           message: "The specified battle does not exist",
           details: battleError?.message || "No battle data returned"
         }),
@@ -134,11 +151,15 @@ serve(async (req: Request) => {
       );
     }
 
-    if (battle.status !== "active") {
+    // Check if battle is in a valid state for card selection
+    const validStatuses = ["active"]; // V2: Only 'active' status allows card selection
+    if (!validStatuses.includes(battle.status)) {
+      console.error(`Invalid battle status for card selection: ${battle.status}`);
       return new Response(
-        JSON.stringify({ 
-          error: "Invalid battle status", 
-          message: `Battle is not active. Current status: ${battle.status}` 
+        JSON.stringify({
+          error: "INVALID_BATTLE_STATUS",
+          message: `Battle is not ready for card selection. Current status: ${battle.status}. Expected: active`,
+          details: `Battle must be in 'active' status to allow card selection. Current status: ${battle.status}`
         }),
         {
           status: 400,
@@ -152,9 +173,9 @@ serve(async (req: Request) => {
     if (resolvedPlayer !== battle.challenger_id && resolvedPlayer !== battle.opponent_id) {
       console.error("Player not in battle:", resolvedPlayer, battle.challenger_id, battle.opponent_id);
       return new Response(
-        JSON.stringify({ 
-          error: "Player not in battle", 
-          message: "You are not a participant in this battle" 
+        JSON.stringify({
+          error: "Player not in battle",
+          message: "You are not a participant in this battle"
         }),
         {
           status: 403,
@@ -163,26 +184,41 @@ serve(async (req: Request) => {
       );
     }
 
-    // 2. Verify the player owns the card
-    console.log("Step 2: Verifying card ownership");
-    console.log(`Checking if player ${resolvedPlayer} owns card ${resolvedCard}`);
-    
+    // 2. Verify the player owns the card and it's a humanoid card
+    console.log("Step 2: Verifying humanoid card ownership");
+    console.log(`Checking if player ${resolvedPlayer} owns humanoid card ${resolvedCard}`);
+
     const { data: cardOwnership, error: cardOwnershipError } = await supabase
       .from("player_cards")
       .select("*")
       .eq("id", resolvedCard)
       .eq("player_id", resolvedPlayer)
-      .single();
+      .eq("card_type", "humanoid") // STRICT: Only humanoid cards allowed
+      .maybeSingle();
 
-    console.log("Card ownership query result:", { cardOwnership, cardOwnershipError });
+    console.log("Humanoid card ownership query result:", { cardOwnership, cardOwnershipError });
 
-    if (cardOwnershipError || !cardOwnership) {
+    if (cardOwnershipError) {
       console.error("Card ownership verification failed:", cardOwnershipError);
       return new Response(
-        JSON.stringify({ 
-          error: "Card not owned", 
-          message: "You do not own this card",
-          details: cardOwnershipError?.message || "No card ownership data returned"
+        JSON.stringify({
+          error: "CARD_OWNERSHIP_ERROR",
+          message: "Failed to verify card ownership",
+          details: cardOwnershipError.message
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!cardOwnership) {
+      console.error("Humanoid card not found or not owned by player");
+      return new Response(
+        JSON.stringify({
+          error: "HUMANOID_CARD_NOT_OWNED",
+          message: "You do not own this humanoid card or the card does not exist. Only humanoid cards can be used in battles."
         }),
         {
           status: 403,
@@ -191,14 +227,57 @@ serve(async (req: Request) => {
       );
     }
 
+    // 2.1. Validate humanoid card attributes
+    console.log("Step 2.1: Validating humanoid card attributes");
+    const cardAttributes = cardOwnership.attributes;
+    
+    if (!cardAttributes || typeof cardAttributes !== 'object') {
+      console.error("Invalid card attributes:", cardAttributes);
+      return new Response(
+        JSON.stringify({
+          error: "INVALID_CARD_ATTRIBUTES",
+          message: "Card has invalid or missing attributes"
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Validate required humanoid attributes
+    const requiredAttributes = ['str', 'dex', 'int'];
+    const missingAttributes = requiredAttributes.filter(attr => 
+      typeof cardAttributes[attr] !== 'number' || 
+      cardAttributes[attr] < 0 || 
+      cardAttributes[attr] > 100
+    );
+
+    if (missingAttributes.length > 0) {
+      console.error("Invalid humanoid attributes:", { cardAttributes, missingAttributes });
+      return new Response(
+        JSON.stringify({
+          error: "INVALID_HUMANOID_ATTRIBUTES",
+          message: `Invalid humanoid card attributes. Missing or invalid: ${missingAttributes.join(', ')}`,
+          details: "Humanoid cards must have str, dex, and int attributes between 0-100"
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    console.log(`✅ Valid humanoid card: ${cardOwnership.card_name} (STR: ${cardAttributes.str}, DEX: ${cardAttributes.dex}, INT: ${cardAttributes.int})`)
+
     // Determine which player is selecting their card
     // Map challenger_id to player1_id and opponent_id to player2_id
     const isChallenger = resolvedPlayer === battle.challenger_id;
-    
+
     // Ensure we have both player IDs for the battle_selections table
     const player1_id = battle.challenger_id;
     const player2_id = battle.opponent_id;
-    
+
     // 3. Check if player has already selected a card for this battle
     const { data: existingCard, error: existingCardError } = await supabase
       .from("battle_cards")
@@ -208,10 +287,12 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingCard) {
+      console.error("Player has already selected a card for this battle");
       return new Response(
-        JSON.stringify({ 
-          error: "Card already selected", 
-          message: "You have already selected a card for this battle" 
+        JSON.stringify({
+          error: "CARD_ALREADY_SELECTED",
+          message: "You have already selected a card for this battle",
+          details: `Card ${existingCard.card_id} was already selected at ${existingCard.created_at}`
         }),
         {
           status: 400,
@@ -236,9 +317,9 @@ serve(async (req: Request) => {
     if (selectionError) {
       console.error("Error recording card selection:", selectionError);
       return new Response(
-        JSON.stringify({ 
-          error: "Failed to record card selection", 
-          details: selectionError.message 
+        JSON.stringify({
+          error: "Failed to record card selection",
+          details: selectionError.message
         }),
         {
           status: 500,
@@ -255,35 +336,17 @@ serve(async (req: Request) => {
 
     console.log("All cards for battle:", allCards);
 
-    // Check if both players have now selected cards and update battle status
-    let battleStatus = "active"; // Default status
+    // Check if both players have now selected cards
     const bothPlayersSubmitted = allCards && allCards.length === 2;
-    
-    if (bothPlayersSubmitted) {
-      console.log("Both players have selected cards. Updating battle status to 'cards_revealed'.");
-      
-      // Use explicit admin client to update battle status to ensure RLS doesn't block
-      const adminClient = createClient(supabaseUrl, supabaseKey);
-      
-      const { data: updatedBattle, error: updateError } = await adminClient
-        .from("battle_instances")
-        .update({ status: "cards_revealed" })
-        .eq("id", battle_id)
-        .select('id, status')
-        .single();
+    let battleStatus = "in_progress"; // Keep as in_progress
 
-      if (updateError) {
-        console.error("Error updating battle status:", updateError);
-        // Don't return an error response, just log it - the selection was still successful
-      } else if (updatedBattle) {
-        battleStatus = updatedBattle.status;
-        console.log("Battle status successfully updated to:", battleStatus);
-      }
+    if (bothPlayersSubmitted) {
+      console.log("Both players have selected cards, battle ready for resolution");
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: "Card selection recorded successfully",
         status: battleStatus,
         both_submitted: bothPlayersSubmitted
@@ -296,9 +359,9 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error("Error selecting card:", error);
     return new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
-        details: error instanceof Error ? error.message : String(error) 
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error)
       }),
       {
         status: 500,
