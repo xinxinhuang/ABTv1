@@ -1,11 +1,26 @@
-/* Override for input fields to have darker text */
+/* Input fields will now use theme variables for proper theming */
 input[type="email"],
 input[type="password"],
 input[type="text"] {
-  color: #1a202c !important; /* Dark gray, almost black text */
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 0.375rem !important;
+  padding: 0.5rem 0.75rem !important;
+  width: 100% !important;
+  transition: all 150ms ease !important;
 }
 
-/* Ensure placeholder text remains visible but distinct */
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="text"]:focus {
+  outline: none !important;
+  border-color: var(--color-primary-500) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Placeholder text */
 ::placeholder {
-  color: #a0aec0 !important; /* Medium gray for placeholders */
+  color: var(--text-secondary) !important;
+  opacity: 1 !important;
 }
