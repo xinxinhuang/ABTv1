@@ -197,6 +197,8 @@ export const BattlePhaseRenderer: React.FC<BattlePhaseRendererProps> = ({
           );
         }
         
+        console.log('Rendering CardsRevealedPhase with battle:', battle.id);
+        
         return (
           <PhaseErrorBoundary phaseName="Cards Revealed" onRetry={onRefresh}>
             <CardsRevealedPhase
@@ -204,7 +206,16 @@ export const BattlePhaseRenderer: React.FC<BattlePhaseRendererProps> = ({
               playerCard={playerCard}
               opponentCard={opponentCard}
               user={user}
-              onResolutionTriggered={onResolutionTriggered}
+              onResolutionTriggered={() => {
+                console.log('Resolution triggered, refreshing battle data');
+                if (onResolutionTriggered) {
+                  onResolutionTriggered();
+                }
+                if (onRefresh) {
+                  // Refresh battle data after a short delay to allow the server to process
+                  setTimeout(onRefresh, 1000);
+                }
+              }}
             />
           </PhaseErrorBoundary>
         );

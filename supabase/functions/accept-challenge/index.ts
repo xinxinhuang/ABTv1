@@ -16,30 +16,46 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log('Accept challenge function called');
     const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
     const { lobby_id } = await req.json();
+    console.log('Accept challenge request:', { lobby_id });
     if (!lobby_id) throw new Error('Missing lobby_id in request body.');
 
     const authHeader = req.headers.get('Authorization')!;
     const userClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', { global: { headers: { Authorization: authHeader } } });
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
+      console.error('Authentication failed:', userError);
       return new Response(JSON.stringify({ error: 'Authentication failed.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
     }
 
-    const { data: lobby, error: lobbyError } = await supabaseAdmin.from('battle_instances').select('*').eq('id', lobby_id).single();
-    if (lobbyError || !lobby) throw new Error('Battle instance not found.');
-    if (lobby.opponent_id !== user.id) throw new Error('You are not the challenged player.');
-    if (lobby.status !== 'pending') throw new Error('This challenge is no longer pending.');
+    console.log('User authenticated:', user.id);
 
+    const { data: lobby, error: lobbyError } = await supabaseAdmin.from('battle_instances').select('*').eq('id', lobby_id).single();
+    console.log('Lobby query result:', { lobby, lobbyError });
+    if (lobbyError || !lobby) throw new Error(`Battle instance not found: ${lobbyError?.message}`);
+    
+    console.log('Checking permissions:', { 
+      opponent_id: lobby.opponent_id, 
+      user_id: user.id, 
+      status: lobby.status,
+      challenger_id: lobby.challenger_id 
+    });
+    
+    if (lobby.opponent_id !== user.id) throw new Error('You are not the challenged player.');
+    if (lobby.status !== 'pending') throw new Error(`This challenge is no longer pending. Current status: ${lobby.status}`);
+
+    console.log('Updating lobby status to active...');
     const { data: updatedLobby, error: updateError } = await supabaseAdmin
       .from('battle_instances')
-      .update({ status: 'in_progress' })
+      .update({ status: 'active' })
       .eq('id', lobby_id)
       .select()
       .single();
 
-    if (updateError) throw new Error('Failed to update lobby status.');
+    console.log('Update result:', { updatedLobby, updateError });
+    if (updateError) throw new Error(`Failed to update lobby status: ${updateError.message}`);
 
     const realtimeClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '');
     const channel = realtimeClient.channel(`battle:${lobby_id}`);

@@ -24,7 +24,7 @@ export function isHumanoidCard(card: Card): card is HumanoidCard {
  * Validate battle status
  */
 export function isValidBattleStatus(status: string): status is BattleStatus {
-  return ['active', 'cards_revealed', 'in_progress', 'completed'].includes(status);
+  return ['pending', 'active', 'cards_revealed', 'in_progress', 'completed'].includes(status);
 }
 
 /**

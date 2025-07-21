@@ -14,6 +14,9 @@ export interface UseBattleStateReturn {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  selectCard: (cardId: string) => Promise<void>;
+  playerHasSelected: boolean;
+  opponentHasSelected: boolean;
 }
 
 /**

@@ -16,13 +16,19 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log('Request received:', req.method, req.url);
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { lobby_id, response, user_id } = await req.json();
-    if (!lobby_id || !response) throw new Error('Missing lobby_id or response in request body.');
+    const requestBody = await req.json();
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    
+    const { lobby_id, response, user_id } = requestBody;
+    if (!lobby_id || !response || !user_id) {
+      throw new Error(`Missing required fields. lobby_id: ${lobby_id}, response: ${response}, user_id: ${user_id}`);
+    }
 
     // 1. Fetch the battle instance
     const { data: lobby, error: lobbyError } = await supabaseAdmin
@@ -31,15 +37,31 @@ serve(async (req: Request) => {
       .eq('id', lobby_id)
       .single();
 
-    if (lobbyError || !lobby) throw new Error('Lobby not found.');
+    if (lobbyError) {
+      console.error('Error fetching lobby:', lobbyError);
+      throw new Error(`Database error: ${lobbyError.message}`);
+    }
+    if (!lobby) {
+      console.error('Lobby not found for ID:', lobby_id);
+      throw new Error('Lobby not found.');
+    }
+    
+    console.log('Found lobby:', JSON.stringify(lobby, null, 2));
 
     // 2. Security Check: Ensure the user responding is the opponent
-    if (lobby.opponent_id !== user_id) {
+    const isOpponent = lobby.opponent_id === user_id;
+                      
+    if (!isOpponent) {
+      const errorMsg = `User ${user_id} is not the opponent for lobby ${lobby_id}. ` +
+                     `Expected opponent: ${lobby.opponent_id}, ` +
+                     `Challenger: ${lobby.challenger_id}`;
+      console.error(errorMsg);
       throw new Error('You are not authorized to respond to this challenge.');
     }
 
-    if (lobby.status !== 'pending') {
-      throw new Error('This challenge has already been responded to.');
+    if (!(lobby.status === 'awaiting_opponent' || lobby.status === 'pending')) {
+      console.error(`Lobby ${lobby_id} has status '${lobby.status}', expected 'awaiting_opponent' or 'pending'`);
+      throw new Error('This challenge has already been responded to or is in an invalid state.');
     }
 
     const realtimeClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '');
@@ -53,7 +75,10 @@ serve(async (req: Request) => {
         .update({ status: 'active' })
         .eq('id', lobby_id);
 
-      if (updateError) throw new Error('Failed to accept challenge.');
+      if (updateError) {
+        console.error('Error updating battle instance:', updateError);
+        throw new Error(`Failed to accept challenge: ${updateError.message}`);
+      }
 
       // 4a. Notify challenger that the challenge was accepted
       await challengerChannel.send({

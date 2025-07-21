@@ -2,62 +2,84 @@
 
 import { useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useUser } from '../../../hooks/useUser';
+import { useUser } from '@/hooks/useUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
 
 interface ChallengePayload {
-  lobby_id: string; // Maintained for backward compatibility
+  lobby_id: string;
   challenger_username: string;
 }
 
-export function ChallengeToastHandler() {
+export function GlobalChallengeNotifications() {
   const supabase = createClient();
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
 
   const handleAccept = useCallback(async (battleId: string) => {
+    console.log('🎯 [GLOBAL] Accepting challenge:', battleId);
+    
     const { error } = await supabase.functions.invoke('accept-challenge', {
-      body: { lobby_id: battleId }, // Keep lobby_id for backend compatibility
+      body: { lobby_id: battleId },
     });
 
     if (error) {
+      console.error('❌ [GLOBAL] Error accepting challenge:', error);
       toast({
         title: 'Error Accepting Challenge',
         description: error.message,
         variant: 'destructive',
       });
     } else {
+      console.log('✅ [GLOBAL] Challenge accepted successfully');
       toast({
         title: 'Challenge Accepted!',
         description: 'Entering battle arena...',
       });
       
-      // Navigate to the battle page using the new route
-      router.push(`/game/arena/battle-v2/${battleId}`);
+      // Navigate to the battle page
+      const battleUrl = `/game/arena/battle-v2/${battleId}`;
+      console.log('🚀 [GLOBAL] Navigating to:', battleUrl);
+      router.push(battleUrl);
     }
   }, [supabase, toast, router]);
 
   const handleDecline = useCallback(async (battleId: string) => {
-    await supabase.functions.invoke('decline-challenge', {
-      body: { lobby_id: battleId }, // Keep lobby_id for backend compatibility
+    console.log('❌ [GLOBAL] Declining challenge:', battleId);
+    
+    const { error } = await supabase.functions.invoke('decline-challenge', {
+      body: { lobby_id: battleId },
     });
-  }, [supabase]);
+
+    if (error) {
+      console.error('❌ [GLOBAL] Error declining challenge:', error);
+    } else {
+      console.log('✅ [GLOBAL] Challenge declined successfully');
+      toast({
+        title: 'Challenge Declined',
+        description: 'You declined the battle challenge.',
+      });
+    }
+  }, [supabase, toast]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log('🔔 [GLOBAL] GlobalChallengeNotifications: No user, skipping subscription');
+      return;
+    }
 
-    console.log(`🔔 ChallengeToastHandler: Setting up subscription for user ${user.id}`);
+    console.log(`🔔 [GLOBAL] GlobalChallengeNotifications: Setting up global subscription for user ${user.id}`);
     const channel = supabase.channel(`invites:${user.id}`);
 
     channel
       .on('broadcast', { event: 'challenge' }, ({ payload }: { payload: ChallengePayload }) => {
-        console.log('🎯 Incoming challenge notification received:', payload);
+        console.log('🎯 [GLOBAL] Incoming challenge notification received:', payload);
         const { lobby_id, challenger_username } = payload;
 
-        console.log('📨 Showing challenge toast for:', { lobby_id, challenger_username });
+        console.log('📨 [GLOBAL] Showing challenge toast for:', { lobby_id, challenger_username });
+        
         toast({
           title: 'New Battle Challenge!',
           description: `${challenger_username} has challenged you to a battle.`,
@@ -70,15 +92,16 @@ export function ChallengeToastHandler() {
           ),
         });
       })
-      .subscribe((status) => {
-        console.log(`🔌 ChallengeToastHandler subscription status: ${status} for channel invites:${user.id}`);
+      .subscribe((status, error) => {
+        console.log(`🔌 [GLOBAL] Challenge subscription status: ${status} for channel invites:${user.id}`);
+        if (error) console.error('🔌 [GLOBAL] Subscription error:', error);
       });
 
     return () => {
-      console.log(`🔌 ChallengeToastHandler: Unsubscribing from channel invites:${user.id}`);
+      console.log(`🔌 [GLOBAL] Unsubscribing from challenge notifications for user ${user.id}`);
       channel.unsubscribe();
     };
   }, [user, supabase, toast, handleAccept, handleDecline, router]);
 
-  return null; // This component does not render anything visible
-}
+  return null; // This component renders nothing visible
+} 

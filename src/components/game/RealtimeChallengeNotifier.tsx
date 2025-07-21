@@ -48,7 +48,21 @@ export default function RealtimeChallengeNotifier() {
 
       if (response === 'accepted') {
         toast.success('Challenge accepted! Redirecting to battle...');
-        router.push(`/game/arena/battle/${battleId}`);
+        
+        // Update challenged player's status to 'in_battle'
+        try {
+          const { error: statusError } = await supabase
+            .from('online_players')
+            .update({ status: 'in_battle' })
+            .eq('id', user.id);
+          if (statusError) {
+            console.warn('Failed to update challenged player status to in_battle:', statusError);
+          }
+        } catch (err) {
+          console.warn('Error updating challenged player status:', err);
+        }
+        
+        router.push(`/game/arena/battle-v2/${battleId}`);
       } else {
         toast.info('Challenge declined.');
       }
@@ -83,7 +97,7 @@ export default function RealtimeChallengeNotifier() {
         console.log('Challenge accepted:', payload);
         const battleId = payload.lobbyId || payload.battleId; // Handle both old and new payload formats
         toast.success('Your challenge was accepted! Redirecting to battle...');
-        router.push(`/game/arena/battle/${battleId}`);
+        router.push(`/game/arena/battle-v2/${battleId}`);
       })
       .on('broadcast', { event: 'challenge_declined' }, ({ payload }) => {
         console.log('Challenge declined:', payload);

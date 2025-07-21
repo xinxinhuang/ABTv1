@@ -13,15 +13,16 @@ import { useBattleState } from '@/hooks/battle-v2/useBattleState';
 import { useBattleRealtime } from '@/hooks/battle-v2/useBattleRealtime';
 import { BattlePhaseRenderer } from '@/components/game/battle-v2/phases/BattlePhaseRenderer';
 import { BattleDebugPanel } from '@/components/game/battle-v2/BattleDebugPanel';
+import { use } from 'react';
 
 interface BattlePageProps {
-  params: { battleId: string };
+  params: Promise<{ battleId: string }>;
 }
 
 export default function BattlePage({ params }: BattlePageProps) {
-  const { battleId } = params;
+  const { battleId } = use(params);
   const router = useRouter();
-  const { user, loading: userLoading } = useUser();
+  const { user, isLoading: userLoading } = useUser();
   
   // State management
   const [playerHasSelected, setPlayerHasSelected] = useState(false);
@@ -61,17 +62,22 @@ export default function BattlePage({ params }: BattlePageProps) {
   }
 
   // Handle card updates from real-time
-  function handleCardUpdate(cardData: any) {
-    console.log('Real-time card update:', cardData);
+  function handleCardUpdate(selectionData: any) {
+    console.log('Real-time selection update:', selectionData);
     setLastUpdateTime(new Date().toLocaleTimeString());
     
-    // Update selection status based on card updates
+    // Update selection status based on battle_selections data
     if (battle && user) {
-      // Check if this card update affects selection status
-      if (cardData.player_id === user.id) {
-        setPlayerHasSelected(true);
+      const isChallenger = user.id === battle.challenger_id;
+      const newSelectionData = selectionData.new || selectionData;
+      
+      // Check player selection status
+      if (isChallenger) {
+        setPlayerHasSelected(!!newSelectionData.player1_card_id);
+        setOpponentHasSelected(!!newSelectionData.player2_card_id);
       } else {
-        setOpponentHasSelected(true);
+        setPlayerHasSelected(!!newSelectionData.player2_card_id);
+        setOpponentHasSelected(!!newSelectionData.player1_card_id);
       }
     }
     

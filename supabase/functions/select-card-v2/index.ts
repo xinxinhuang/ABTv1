@@ -338,18 +338,155 @@ serve(async (req: Request) => {
 
     // Check if both players have now selected cards
     const bothPlayersSubmitted = allCards && allCards.length === 2;
-    let battleStatus = "in_progress"; // Keep as in_progress
+    let battleStatus = battle.status; // Keep current status initially
 
+    // Update battle status to cards_revealed when both players have selected
     if (bothPlayersSubmitted) {
-      console.log("Both players have selected cards, battle ready for resolution");
+      console.log("Both players have selected cards, updating battle status to cards_revealed");
+      
+      const { data: updatedBattle, error: statusError } = await supabase
+        .from("battle_instances")
+        .update({ status: "cards_revealed" })
+        .eq("id", battle_id)
+        .select()
+        .single();
+
+      if (statusError) {
+        console.error("Error updating battle status:", statusError);
+      } else {
+        battleStatus = "cards_revealed";
+        console.log("✅ Battle status updated to cards_revealed");
+      }
     }
 
+    // 6. Broadcast real-time updates to both players
+    console.log("Step 6: Broadcasting real-time updates");
+    
+    try {
+      // Create real-time client for broadcasting
+      const realtimeClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '', 
+        Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      );
+      
+      const channel = realtimeClient.channel(`battle-v2:${battle_id}`);
+      await channel.subscribe();
+      
+      // Wait a moment for subscription to be established
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Broadcast card selection event
+      const broadcastPayload = {
+        type: 'card_selected',
+        player_id: resolvedPlayer,
+        card_id: resolvedCard,
+        battle_status: battleStatus,
+        both_submitted: bothPlayersSubmitted,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('Broadcasting card selection:', broadcastPayload);
+      
+      const broadcastResult = await channel.send({
+        type: 'broadcast',
+        event: 'card_selected',
+        payload: broadcastPayload
+      });
+      
+      console.log('Broadcast result:', broadcastResult);
+      
+      // If both players have submitted, also broadcast battle status change
+      if (bothPlayersSubmitted) {
+        await channel.send({
+          type: 'broadcast',
+          event: 'battle_status_changed',
+          payload: {
+            battle_id: battle_id,
+            new_status: battleStatus,
+            timestamp: new Date().toISOString()
+          }
+        });
+        console.log('✅ Broadcasted battle status change to cards_revealed');
+
+        // Invoke the resolve-battle-v2 function
+        console.log('Attempting to invoke resolve-battle-v2 function...');
+        const resolveUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/resolve-battle-v2`;
+        
+        try {
+          // Add a delay before invoking resolve-battle-v2 to ensure database updates are complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const response = await fetch(resolveUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              'apikey': Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ''
+            },
+            body: JSON.stringify({ battle_id })
+          });
+          
+          if (!response.ok) {
+            const responseText = await response.text();
+            console.error('Error invoking resolve-battle-v2:', {
+              status: response.status,
+              statusText: response.statusText,
+              body: responseText
+            });
+            
+            // Broadcast error to clients
+            await channel.send({
+              type: 'broadcast',
+              event: 'battle_resolution_error',
+              payload: {
+                battle_id: battle_id,
+                error: 'Failed to trigger automatic resolution',
+                timestamp: new Date().toISOString()
+              }
+            });
+          } else {
+            const responseData = await response.json();
+            console.log('Response from resolve-battle-v2:', {
+              status: response.status,
+              statusText: response.statusText,
+              data: responseData
+            });
+            console.log('✅ Successfully invoked resolve-battle-v2');
+          }
+        } catch (resolveError) {
+          console.error('Fatal error invoking resolve-battle-v2:', resolveError);
+          
+          // Broadcast error to clients
+          await channel.send({
+            type: 'broadcast',
+            event: 'battle_resolution_error',
+            payload: {
+              battle_id: battle_id,
+              error: 'Failed to trigger automatic resolution',
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      }
+      
+      // Cleanup channel
+      await realtimeClient.removeChannel(channel);
+      
+    } catch (broadcastError) {
+      console.error('Error broadcasting real-time updates:', broadcastError);
+      // Don't fail the entire request for broadcast errors
+    }
+
+    console.log("✅ Card selection completed successfully");
+    
     return new Response(
       JSON.stringify({
         success: true,
         message: "Card selection recorded successfully",
         status: battleStatus,
-        both_submitted: bothPlayersSubmitted
+        both_submitted: bothPlayersSubmitted,
+        card_selection_id: cardSelection.id,
+        battle_id: battle_id
       }),
       {
         status: 200,

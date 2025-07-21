@@ -1,6 +1,8 @@
-import { supabase } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+
+const supabase = createClient();
 
 export interface OnlinePlayer {
   id: string;
@@ -32,13 +34,23 @@ export const onlinePlayersService = {
         });
         
       if (error) {
-        console.error('Error registering online status:', error);
+        console.error('Error registering online status:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error
+        });
         
         // Check if the error is due to missing tables
         if (error.code === '42P01') { // PostgreSQL code for undefined_table
           toast.error('Database tables not found. Please run the schema.sql file in your Supabase SQL editor.');
           return;
         }
+        
+        // General error toast for other issues
+        toast.error(`Failed to register online status: ${error.message || 'Unknown error'}`);
+        return;
       }
       
       // Set up a heartbeat to update last_seen
@@ -104,11 +116,19 @@ export const onlinePlayersService = {
         .gt('last_seen', fiveMinutesAgo.toISOString());
       
       if (error) {
-        console.error('Error fetching online players:', error);
+        console.error('Error fetching online players:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error
+        });
         
         // Check if the error is due to missing tables
         if (error.code === '42P01') { // PostgreSQL code for undefined_table
           toast.error('Database tables not found. Please run the schema.sql file in your Supabase SQL editor.');
+        } else {
+          toast.error(`Failed to load online players: ${error.message || 'Unknown error'}`);
         }
         
         return [];

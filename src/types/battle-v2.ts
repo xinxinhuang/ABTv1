@@ -60,6 +60,7 @@ export interface BattleInstance {
  * Battle status values
  */
 export type BattleStatus = 
+  | 'pending'          // Challenge initiated, waiting for opponent to accept
   | 'active'           // Card selection phase
   | 'cards_revealed'   // Cards revealed, countdown to resolution
   | 'in_progress'      // Battle resolution in progress

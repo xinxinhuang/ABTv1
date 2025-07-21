@@ -22,6 +22,8 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
   const [opponentCard, setOpponentCard] = useState<HumanoidCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playerHasSelected, setPlayerHasSelected] = useState(false);
+  const [opponentHasSelected, setOpponentHasSelected] = useState(false);
 
   /**
    * Fetch battle instance data
@@ -78,27 +80,16 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
   }, [battleId, user, supabase]);
 
   /**
-   * Fetch battle cards for both players
+   * Fetch battle cards for both players from battle_cards table
    */
   const fetchBattleCards = useCallback(async (battleInstance: BattleInstance) => {
     if (!user) return;
 
     try {
-      // Fetch battle cards
+      // Fetch battle selections 
       const { data: battleCards, error: cardsError } = await supabase
         .from('battle_cards')
-        .select(`
-          *,
-          player_cards (
-            id,
-            player_id,
-            card_name,
-            card_type,
-            attributes,
-            rarity,
-            obtained_at
-          )
-        `)
+        .select('*, player_cards(*)')
         .eq('battle_id', battleInstance.id);
 
       if (cardsError) {
@@ -106,42 +97,26 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
         return;
       }
 
-      if (!battleCards || battleCards.length === 0) {
+      if (!battleCards) {
+        console.log('No battle cards found yet');
         return;
       }
 
-      // Process cards and filter for humanoids only
+      const userCardData = battleCards.find(c => c.player_id === user.id);
+      const opponentCardData = battleCards.find(c => c.player_id !== user.id);
+
       let userCard: HumanoidCard | null = null;
+      if (userCardData && userCardData.player_cards && isHumanoidCard(userCardData.player_cards)) {
+        userCard = userCardData.player_cards;
+      }
+
       let opponentCard: HumanoidCard | null = null;
-
-      battleCards.forEach(battleCard => {
-        const cardData = battleCard.player_cards;
-        if (!cardData) return;
-
-        // Create card object
-        const card = {
-          id: cardData.id,
-          player_id: cardData.player_id,
-          card_name: cardData.card_name,
-          card_type: cardData.card_type,
-          attributes: cardData.attributes,
-          rarity: cardData.rarity,
-          obtained_at: cardData.obtained_at
-        };
-
-        // Only process humanoid cards
-        if (isHumanoidCard(card)) {
-          if (battleCard.player_id === user.id) {
-            userCard = card;
-          } else {
-            // Only show opponent card if battle is completed or cards are revealed
-            if (['cards_revealed', 'in_progress', 'completed'].includes(battleInstance.status)) {
-              opponentCard = card;
-            }
-          }
+      if (opponentCardData && opponentCardData.player_cards && isHumanoidCard(opponentCardData.player_cards)) {
+        if (['cards_revealed', 'in_progress', 'completed'].includes(battleInstance.status)) {
+            opponentCard = opponentCardData.player_cards;
         }
-      });
-
+      }
+      
       setPlayerCard(userCard);
       setOpponentCard(opponentCard);
 
@@ -159,6 +134,58 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
     setLoading(false);
   }, [fetchBattle]);
 
+  /**
+   * Handle real-time updates for card selections
+   */
+  const handleCardSelectionEvent = useCallback((payload) => {
+    console.log('Real-time event received: card_selected', payload);
+
+    if (payload.player_id === user?.id) {
+      setPlayerHasSelected(true);
+    } else {
+      setOpponentHasSelected(true);
+    }
+
+    // When both players have selected, refresh the battle state
+    if (payload.both_submitted) {
+      console.log('Both players have submitted, refreshing battle data...');
+      refresh();
+    }
+  }, [user, refresh]);
+
+  /**
+   * Select a card for the current user
+   */
+  const selectCard = useCallback(async (cardId: string) => {
+    if (!user || !battle) {
+      setError("User or battle not available.");
+      return;
+    }
+
+    console.log(`Attempting to select card ${cardId} for battle ${battle.id}`);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('select-card-v2', {
+        body: {
+          battle_id: battle.id,
+          player_id: user.id,
+          card_id: cardId,
+        },
+      });
+
+      if (error) {
+        throw new Error(`Error selecting card: ${error.message}`);
+      }
+
+      console.log('Card selected successfully:', data);
+      setPlayerHasSelected(true); // Optimistically update UI
+
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+    }
+  }, [user, battle, supabase]);
+
   // Initial data fetch
   useEffect(() => {
     if (battleId && user) {
@@ -166,12 +193,40 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
     }
   }, [battleId, user, refresh]);
 
+  // Real-time subscription setup
+  useEffect(() => {
+    if (!battleId || !user) return;
+
+    const channel = supabase.channel(`battle-v2:${battleId}`);
+
+    channel
+      .on('broadcast', { event: 'card_selected' }, (event) => {
+        handleCardSelectionEvent(event.payload);
+      })
+      .on('broadcast', { event: 'battle_status_changed' }, (event) => {
+        console.log('Battle status changed:', event.payload);
+        refresh(); // Refresh data on status change
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to battle-v2:${battleId}`);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [battleId, user, supabase, handleCardSelectionEvent, refresh]);
+
   return {
     battle,
     playerCard,
     opponentCard,
     loading,
     error,
-    refresh
+    refresh,
+    selectCard,
+    playerHasSelected,
+    opponentHasSelected,
   };
 }

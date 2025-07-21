@@ -51,16 +51,30 @@ serve(async (req: Request) => {
 
     // Notify player 2 of the challenge
     const realtimeClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '');
-    const channel = realtimeClient.channel(`users:${player2_id}`);
-    await channel.subscribe();
-    await channel.send({
+    const channel = realtimeClient.channel(`invites:${player2_id}`);
+    
+    console.log(`Subscribing to channel: invites:${player2_id}`);
+    const subscriptionResult = await channel.subscribe();
+    console.log('Subscription result:', subscriptionResult);
+    
+    // Wait a moment for subscription to be established
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log('Sending challenge notification:', {
+      lobby_id: newLobby.id,
+      challenger_username: player1Data.user.user_metadata.username || 'An unknown player',
+    });
+    
+    const broadcastResult = await channel.send({
       type: 'broadcast',
-      event: 'new_challenge',
+      event: 'challenge',
       payload: { 
-        lobbyId: newLobby.id,
-        challengerName: player1Data.user.user_metadata.username || 'An unknown player',
+        lobby_id: newLobby.id,
+        challenger_username: player1Data.user.user_metadata.username || 'An unknown player',
       },
     });
+    
+    console.log('Broadcast result:', broadcastResult);
 
     return new Response(JSON.stringify({ lobbyId: newLobby.id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

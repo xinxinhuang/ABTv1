@@ -6,11 +6,7 @@ import { useUser } from '@/hooks/useUser';
 import { ChallengeButton } from './ChallengeButton';
 import { RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-
-interface OnlinePlayer {
-  id: string;
-  username: string;
-}
+import { onlinePlayersService, OnlinePlayer } from '@/lib/services/onlinePlayersService';
 
 export function OnlinePlayersList() {
   const supabase = createClient();
@@ -21,54 +17,100 @@ export function OnlinePlayersList() {
   const [lastRefresh, setLastRefresh] = useState<string>('');
 
   const fetchOnlinePlayers = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setError(null);
       
-      // Get all profiles except the current user
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .neq('id', user.id)
-        .order('username');
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        setError('Could not load players.');
-        return;
-      }
-
-      // For now, show all registered players as "online"
-      // In a real implementation, you might want to track actual online status
-      const players = profiles.map(profile => ({
-        id: profile.id,
-        username: profile.username || 'Anonymous'
-      }));
-
-      setOnlinePlayers(players);
+      const players = await onlinePlayersService.getOnlinePlayers();
+      
+      // Filter out current user
+      const otherPlayers = players.filter(player => player.id !== user.id);
+      
+      setOnlinePlayers(otherPlayers);
       setLastRefresh(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Error fetching online players:', err);
-      setError('Failed to load players.');
+      setError('Failed to load online players. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [user, supabase]);
+  }, [user]);
 
   const handleManualRefresh = useCallback(() => {
     setLoading(true);
     fetchOnlinePlayers();
   }, [fetchOnlinePlayers]);
 
+  // Register current user as online and set up subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    // Register current user as online
+    const registerUser = async () => {
+      try {
+        // Get username from profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single();
+
+        const username = profile?.username || 'Anonymous';
+        await onlinePlayersService.registerOnline(user, username);
+      } catch (err) {
+        console.error('Failed to register online status:', err);
+      }
+    };
+
+    registerUser();
+
+    // Set up real-time subscription for online players
+    const unsubscribe = onlinePlayersService.subscribeToOnlinePlayers((players) => {
+      const otherPlayers = players.filter(player => player.id !== user.id);
+      setOnlinePlayers(otherPlayers);
+      setLastRefresh(new Date().toLocaleTimeString());
+    });
+
+    // Clean up when component unmounts or user changes
+    return () => {
+      unsubscribe();
+      onlinePlayersService.unregisterOnline(user.id);
+    };
+  }, [user, supabase]);
+
+  // Initial fetch
   useEffect(() => {
     fetchOnlinePlayers();
-    
-    // Set up periodic refresh every 30 seconds
-    const interval = setInterval(fetchOnlinePlayers, 30000);
-    
-    return () => clearInterval(interval);
   }, [fetchOnlinePlayers]);
+
+  // Handle page visibility to manage online status
+  useEffect(() => {
+    if (!user) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        onlinePlayersService.updateStatus(user.id, 'away');
+      } else {
+        onlinePlayersService.updateStatus(user.id, 'online');
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      onlinePlayersService.unregisterOnline(user.id);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
 
   if (error) {
     return (
@@ -147,7 +189,7 @@ export function OnlinePlayersList() {
       {onlinePlayers.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>No other players found.</p>
+          <p>No other players online.</p>
           <p className="text-sm mt-1">Invite a friend to join the game!</p>
         </div>
       ) : (
@@ -155,10 +197,18 @@ export function OnlinePlayersList() {
           {onlinePlayers.map((player) => (
             <li key={player.id} className="flex items-center justify-between py-3">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                <div className={`w-2 h-2 rounded-full ${
+                  player.status === 'online' ? 'bg-green-500' :
+                  player.status === 'in_battle' ? 'bg-orange-500' :
+                  'bg-gray-500'
+                }`} />
                 <span className="text-lg">{player.username}</span>
+                <span className="text-xs text-gray-500 capitalize">({player.status})</span>
               </div>
-              <ChallengeButton challengedPlayerId={player.id} />
+              <ChallengeButton 
+                challengedPlayerId={player.id} 
+                disabled={player.status === 'in_battle'}
+              />
             </li>
           ))}
         </ul>

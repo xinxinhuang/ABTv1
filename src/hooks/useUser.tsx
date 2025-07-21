@@ -1,18 +1,23 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
+import { onlinePlayersService } from '@/lib/services/onlinePlayersService';
 
 interface UserContextType {
   user: User | null;
-  userDetails: any | null; // You can define a stricter type for userDetails
+  userDetails: any | null;
   isLoading: boolean;
 }
 
-export const UserContext = createContext<UserContextType | undefined>(undefined);
+const UserContext = createContext<UserContextType>({
+  user: null,
+  userDetails: null,
+  isLoading: true,
+});
 
-export interface UserContextProviderProps {
+interface UserContextProviderProps {
   children: React.ReactNode;
 }
 
@@ -33,6 +38,22 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
         console.error('Error fetching user details:', error);
       } else {
         setUserDetails(data);
+        
+        // Register user as online when profile is loaded
+        try {
+          const username = data.username || 'Anonymous';
+          await onlinePlayersService.registerOnline(user, username);
+        } catch (err) {
+          console.error('Failed to register online status:', err);
+        }
+      }
+    };
+
+    const handleUserSignOut = async (userId: string) => {
+      try {
+        await onlinePlayersService.unregisterOnline(userId);
+      } catch (err) {
+        console.error('Failed to unregister online status:', err);
       }
     };
 
@@ -50,6 +71,12 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       const sessionUser = session?.user ?? null;
+      
+      // Handle sign out - cleanup online status before clearing user data
+      if (event === 'SIGNED_OUT' && user) {
+        await handleUserSignOut(user.id);
+      }
+      
       setUser(sessionUser);
       if (sessionUser) {
         await getUserDetails(sessionUser);
@@ -59,10 +86,35 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
       setIsLoading(false);
     });
 
+    // Cleanup function to handle page unload
+    const handleBeforeUnload = () => {
+      if (user) {
+        // Use sendBeacon for more reliable cleanup during page unload
+        const data = JSON.stringify({
+          user_id: user.id
+        });
+        
+        // Fallback to regular cleanup if sendBeacon fails
+        try {
+          navigator.sendBeacon('/api/user/offline', data);
+        } catch (err) {
+          onlinePlayersService.unregisterOnline(user.id);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
       authListener.subscription.unsubscribe();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Cleanup online status when component unmounts
+      if (user) {
+        onlinePlayersService.unregisterOnline(user.id);
+      }
     };
-  }, [supabase]);
+  }, [supabase, user?.id]); // Only depend on user.id to avoid infinite loops
 
   const value = {
     user,
@@ -75,8 +127,8 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
 
 export const useUser = () => {
   const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error('useUser must be used within a UserContextProvider.');
+  if (!context) {
+    throw new Error('useUser must be used within a UserContextProvider');
   }
   return context;
 };

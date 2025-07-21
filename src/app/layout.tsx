@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/toaster";
 import "@/styles/theme.css";
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { UserContextProvider } from '@/hooks/useUser';
-import RealtimeChallengeNotifier from '@/components/game/RealtimeChallengeNotifier';
 import { Header } from '@/components/layout/Header';
+import { GlobalChallengeNotifications } from '@/components/game/GlobalChallengeNotifications';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,8 +38,8 @@ export default function RootLayout({
             <main className="content-height">
               {children}
             </main>
-            <Toaster position="top-center" richColors />
-            <RealtimeChallengeNotifier />
+            <Toaster />
+            <GlobalChallengeNotifications />
           </UserContextProvider>
         </ThemeProvider>
       </body>

@@ -79,18 +79,30 @@ export function useBattleRealtime(
   /**
    * Handle broadcast events (for immediate updates)
    */
-  const handleBroadcast = useCallback((payload: any) => {
-    console.log('Broadcast received:', payload);
+  const handleBroadcast = useCallback((event: string, payload: any) => {
+    console.log(`Broadcast received (${event}):`, payload);
     
-    const event: BattleRealtimeEvent = {
-      type: payload.event || 'battle_updated',
+    // Handle specific events
+    if (event === 'battle_resolution_error') {
+      console.error('Battle resolution error:', payload);
+      setConnectionError(`Battle resolution error: ${payload.error || 'Unknown error'}`);
+      
+      // Notify user about the error
+      if (typeof window !== 'undefined') {
+        // Show a toast or alert in the UI
+        alert(`Battle resolution error: ${payload.error || 'Unknown error'}. Please try manual resolution.`);
+      }
+    }
+    
+    const realtimeEvent: BattleRealtimeEvent = {
+      type: event as any || 'battle_updated',
       battleId,
       playerId: payload.player_id || '',
       timestamp: payload.timestamp || new Date().toISOString(),
       data: payload
     };
     
-    setLastEvent(event);
+    setLastEvent(realtimeEvent);
   }, [battleId]);
 
   /**
@@ -126,7 +138,7 @@ export function useBattleRealtime(
         handleBattleUpdate
       );
 
-      // Subscribe to battle cards changes
+      // Subscribe to battle cards changes (card selections)
       channel.on(
         'postgres_changes',
         {
@@ -139,8 +151,8 @@ export function useBattleRealtime(
       );
 
       // Subscribe to broadcast events
-      channel.on('broadcast', { event: '*' }, ({ payload }) => {
-        handleBroadcast(payload);
+      channel.on('broadcast', { event: '*' }, ({ event, payload }) => {
+        handleBroadcast(event, payload);
       });
 
       // Handle subscription status
@@ -163,13 +175,12 @@ export function useBattleRealtime(
 
       // Subscribe to the channel
       const subscriptionResult = await channel.subscribe();
+      console.log('Subscription result:', subscriptionResult);
       
-      if (subscriptionResult === 'SUBSCRIBED') {
-        channelRef.current = channel;
-        setIsConnected(true);
-      } else {
-        throw new Error('Failed to subscribe to real-time updates');
-      }
+      // Store the channel and mark as connected
+      channelRef.current = channel;
+      setIsConnected(true);
+      console.log(`✅ Successfully subscribed to battle ${battleId} real-time updates`);
 
     } catch (err) {
       console.error('Error connecting to real-time:', err);
@@ -234,14 +245,14 @@ export function useBattleRealtime(
     return () => {
       disconnect();
     };
-  }, [battleId, user, connect, disconnect]);
+  }, [battleId, user?.id]); // Only depend on stable values
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       disconnect();
     };
-  }, [disconnect]);
+  }, []); // No dependencies needed for cleanup
 
   return {
     isConnected,

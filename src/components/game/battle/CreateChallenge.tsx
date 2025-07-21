@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 
-export default function CreateChallenge() {
+interface CreateChallengeProps {
+  opponentId: string;
+}
+
+export default function CreateChallenge({ opponentId }: CreateChallengeProps) {
   
   const { toast } = useToast();
   const [isSelecting, setIsSelecting] = useState(false);
@@ -77,10 +81,15 @@ export default function CreateChallenge() {
         throw new Error('User not authenticated');
       }
       
-      // Create the battle instance. player2_id is omitted and will be NULL.
+      if (!opponentId) {
+        throw new Error('No opponent specified for the challenge');
+      }
+      
+      // Create the battle instance with challenger_id and opponent_id
       const { data, error } = await supabase.from('battle_instances').insert({
-        player1_id: user.id,
-        status: 'pending',
+        challenger_id: user.id,
+        opponent_id: opponentId,
+        status: 'awaiting_opponent',
         winner_id: null,
         completed_at: null,
         transfer_completed: false

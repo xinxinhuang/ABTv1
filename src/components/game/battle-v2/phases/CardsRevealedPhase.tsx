@@ -42,16 +42,21 @@ export const CardsRevealedPhase: React.FC<CardsRevealedPhaseProps> = ({
     async () => {
       // Auto-trigger resolution when countdown completes
       try {
+        console.log('Auto-triggering battle resolution for battle:', battle.id);
         await triggerResolution();
         if (onResolutionTriggered) {
           onResolutionTriggered();
         }
       } catch (error) {
         console.error('Auto-resolution failed:', error);
+        // Show error to user
+        alert(`Auto-resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Restart countdown if resolution fails
+        countdown.start(BATTLE_CONFIG.CARDS_REVEALED_COUNTDOWN);
       }
     },
     (seconds) => {
-      console.log(`Battle auto-resolution in ${seconds} seconds`);
+      console.log(`Battle auto-resolution in ${seconds} seconds for battle ${battle.id}`);
     }
   );
 
@@ -63,6 +68,8 @@ export const CardsRevealedPhase: React.FC<CardsRevealedPhaseProps> = ({
   // Card reveal animation sequence
   useEffect(() => {
     const revealSequence = async () => {
+      console.log('Starting card reveal sequence for battle:', battle.id);
+      
       // Start countdown immediately
       countdown.start(BATTLE_CONFIG.CARDS_REVEALED_COUNTDOWN);
       
@@ -78,22 +85,48 @@ export const CardsRevealedPhase: React.FC<CardsRevealedPhaseProps> = ({
         // Calculate battle preview
         const preview = calculateBattleResult(userCard, enemyCard);
         setBattlePreview(preview);
+        console.log('Battle preview calculated:', preview);
       }, 1500);
     };
 
     revealSequence();
-  }, [userCard, enemyCard, countdown]);
+    
+    // Listen for battle resolution errors
+    const handleResolutionError = (event: any) => {
+      if (event.detail?.type === 'battle_resolution_error' && 
+          event.detail?.battleId === battle.id) {
+        console.error('Battle resolution error detected:', event.detail);
+        // Restart countdown with a longer duration
+        countdown.stop();
+        countdown.start(BATTLE_CONFIG.CARDS_REVEALED_COUNTDOWN * 2);
+      }
+    };
+    
+    // Add event listener for custom battle resolution error events
+    window.addEventListener('battle_resolution_error', handleResolutionError);
+    
+    // Cleanup function
+    return () => {
+      countdown.stop();
+      window.removeEventListener('battle_resolution_error', handleResolutionError);
+    };
+  }, [userCard, enemyCard, countdown, battle.id]);
 
   // Manual resolution trigger
   const handleManualResolution = async () => {
     try {
       countdown.stop();
+      console.log('Manually triggering battle resolution for battle:', battle.id);
       await triggerResolution();
       if (onResolutionTriggered) {
         onResolutionTriggered();
       }
     } catch (error) {
       console.error('Manual resolution failed:', error);
+      // Show error to user
+      alert(`Resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Restart countdown if resolution fails
+      countdown.start(BATTLE_CONFIG.CARDS_REVEALED_COUNTDOWN);
     }
   };
 

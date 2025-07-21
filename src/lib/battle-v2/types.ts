@@ -9,7 +9,7 @@ import { HumanoidCard, BattleStatus } from '@/types/battle-v2';
  */
 export const BATTLE_CONFIG = {
   CARD_SELECTION_TIMEOUT: 300, // 5 minutes in seconds
-  CARDS_REVEALED_COUNTDOWN: 10, // 10 seconds countdown
+  CARDS_REVEALED_COUNTDOWN: 20, // 20 seconds countdown (increased from 10)
   MAX_BATTLE_DURATION: 1800, // 30 minutes max battle time
   RECONNECTION_ATTEMPTS: 3,
   RECONNECTION_DELAY: 2000, // 2 seconds
@@ -19,6 +19,7 @@ export const BATTLE_CONFIG = {
  * Battle phase transitions
  */
 export const BATTLE_PHASE_TRANSITIONS: Record<BattleStatus, BattleStatus[]> = {
+  'pending': ['active', 'completed'],
   'active': ['cards_revealed', 'completed'],
   'cards_revealed': ['in_progress', 'completed'],
   'in_progress': ['completed'],

@@ -37,19 +37,19 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
         setIsProcessing(true);
         setActionError(null);
 
-        try {
-            console.log('Selecting card:', { battleId, cardId, userId: user.id });
+            try {
+      console.log('Selecting card:', { battleId, cardId, userId: user.id });
 
-            // Call the select-card-v2 edge function
-            const response = await supabase.functions.invoke('select-card-v2', {
-                body: {
-                    battle_id: battleId,
-                    player_id: user.id,
-                    card_id: cardId
-                }
-            });
+      // Call the select-card-v2 edge function with correct parameters
+      const response = await supabase.functions.invoke('select-card-v2', {
+        body: {
+          battle_id: battleId,
+          user_id: user.id, // Current function uses user_id
+          selected_card_id: cardId // Current function uses selected_card_id
+        }
+      });
 
-            console.log('Select card response:', response);
+      console.log('Select card response:', response);
 
             // Check for function invocation errors
             if (response.error) {
@@ -143,8 +143,8 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
         try {
             console.log('Triggering battle resolution:', { battleId, userId: user.id });
 
-            // Call the resolve-battle edge function
-            const response = await supabase.functions.invoke('resolve-battle', {
+            // Call the resolve-battle-v2 edge function (updated to use v2)
+            const response = await supabase.functions.invoke('resolve-battle-v2', {
                 body: {
                     battle_id: battleId,
                     player_id: user.id
@@ -155,7 +155,7 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
 
             // Check for function invocation errors
             if (response.error) {
-                throw new Error(response.error.message || 'Failed to invoke resolve-battle function');
+                throw new Error(response.error.message || 'Failed to invoke resolve-battle-v2 function');
             }
 
             // Check for application errors in the response data
@@ -174,6 +174,28 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
         } catch (err) {
             console.error('Error triggering resolution:', err);
             setActionError(err instanceof Error ? err.message : 'Failed to trigger battle resolution');
+            
+            // Broadcast resolution error to help other clients
+            try {
+                await broadcast('battle_resolution_error', {
+                    error: err instanceof Error ? err.message : 'Failed to trigger battle resolution',
+                    triggered_by: user.id
+                });
+                
+                // Dispatch custom event for local components to react
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('battle_resolution_error', {
+                        detail: {
+                            type: 'battle_resolution_error',
+                            battleId,
+                            error: err instanceof Error ? err.message : 'Failed to trigger battle resolution'
+                        }
+                    }));
+                }
+            } catch (broadcastError) {
+                console.error('Failed to broadcast resolution error:', broadcastError);
+            }
+            
             throw err;
         } finally {
             setIsProcessing(false);
@@ -269,7 +291,7 @@ export function useBattleActionValidation(battleId: string) {
             // Check battle status
             const { data: battle, error: battleError } = await supabase
                 .from('battle_instances')
-                .select('status')
+                .select('status, challenger_id, opponent_id')
                 .eq('id', battleId)
                 .single();
 
@@ -278,7 +300,26 @@ export function useBattleActionValidation(battleId: string) {
             }
 
             if (battle.status !== 'cards_revealed') {
-                return { valid: false, error: 'Battle resolution not allowed in current state' };
+                return { valid: false, error: `Battle resolution not allowed in current state: ${battle.status}` };
+            }
+
+            // Verify that the user is a participant in the battle
+            if (user.id !== battle.challenger_id && user.id !== battle.opponent_id) {
+                return { valid: false, error: 'You are not a participant in this battle' };
+            }
+
+            // Check if both players have submitted cards
+            const { data: battleCards, error: cardsError } = await supabase
+                .from('battle_cards')
+                .select('player_id')
+                .eq('battle_id', battleId);
+
+            if (cardsError) {
+                return { valid: false, error: 'Error checking battle cards' };
+            }
+
+            if (!battleCards || battleCards.length !== 2) {
+                return { valid: false, error: 'Both players must submit cards before resolution' };
             }
 
             return { valid: true };

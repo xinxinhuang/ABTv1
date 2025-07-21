@@ -1,5 +1,4 @@
 import { OnlinePlayersList } from '@/components/game/lobby/OnlinePlayersList';
-import { ChallengeToastHandler } from '@/components/game/lobby/ChallengeToastHandler';
 import { GameLayout, Card } from '@/components/layout/GameLayout';
 import { History } from 'lucide-react';
 import Link from 'next/link';
@@ -34,7 +33,6 @@ export default function ArenaLobbyPage() {
         </Card>
       </div>
 
-      <ChallengeToastHandler />
     </GameLayout>
   );
 }

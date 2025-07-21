@@ -12,9 +12,10 @@ import Link from 'next/link';
 
 interface CreateChallengeModalProps {
   onChallengeCreated?: () => void;
+  opponentId: string; // Add opponentId prop
 }
 
-export function CreateChallengeModal({ onChallengeCreated }: CreateChallengeModalProps) {
+export function CreateChallengeModal({ onChallengeCreated, opponentId }: CreateChallengeModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [playerCards, setPlayerCards] = useState<Card[]>([]);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -102,15 +103,18 @@ export function CreateChallengeModal({ onChallengeCreated }: CreateChallengeModa
         return;
       }
       
-      // Create a new battle instance
-      // We need to use the same user ID for player2_id initially to satisfy the foreign key constraint
-      // This will be updated when another player joins the battle
+      if (!opponentId) {
+        toast.error('No opponent selected for the challenge');
+        return;
+      }
+
+      // Create a new battle instance with challenger_id and opponent_id
       const { data: battleData, error: battleError } = await supabase
         .from('battle_instances')
         .insert({
-          player1_id: session.user.id,
-          player2_id: session.user.id, // Using the same user ID temporarily to satisfy foreign key constraint
-          status: 'pending'
+          challenger_id: session.user.id,
+          opponent_id: opponentId,
+          status: 'awaiting_opponent'
         })
         .select()
         .single();

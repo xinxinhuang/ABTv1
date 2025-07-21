@@ -365,26 +365,3 @@ BEGIN
     RETURN QUERY SELECT * FROM player_cards WHERE player_cards.id = new_card.id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Online Players Table: Tracks currently online players
-CREATE TABLE IF NOT EXISTS online_players (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  username TEXT NOT NULL,
-  last_seen TIMESTAMPTZ DEFAULT NOW(),
-  status TEXT DEFAULT 'online' CHECK (status IN ('online', 'in_battle', 'away'))
-);
-
--- Index for performance
-CREATE INDEX IF NOT EXISTS online_players_last_seen_idx ON online_players (last_seen);
-CREATE INDEX IF NOT EXISTS online_players_status_idx ON online_players (status);
-
--- RLS policies for online_players
-ALTER TABLE online_players ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view online players" 
-  ON online_players FOR SELECT 
-  USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Users can manage their own online status" 
-  ON online_players FOR ALL 
-  USING (auth.uid() = id);
