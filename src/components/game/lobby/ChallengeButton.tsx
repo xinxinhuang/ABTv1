@@ -64,28 +64,68 @@ export function ChallengeButton({ challengedPlayerId, disabled = false }: Challe
 
       toast({
         title: 'Challenge Sent!',
-        description: 'Entering battle arena. Waiting for opponent...',
-        duration: 3000, // Auto-dismiss after 3 seconds
+        description: 'Waiting for opponent to accept the challenge...',
+        duration: 5000, // Auto-dismiss after 5 seconds
       });
 
-      // Redirect challenger to battle arena immediately
+      // Don't redirect immediately - wait for challenge to be accepted
+      // The challenger will be redirected when they receive a notification that the challenge was accepted
       if (data.lobbyId) {
-        console.log(`🚀 Redirecting challenger to battle: ${data.lobbyId}`);
+        console.log(`✅ Challenge created with lobby ID: ${data.lobbyId}`);
+        console.log(`⏳ Waiting for opponent to accept challenge...`);
         
-        // Update challenger's online status to 'in_battle'
-        try {
-          const { error: statusError } = await supabase
-            .from('online_players')
-            .update({ status: 'in_battle' })
-            .eq('id', user.id);
-          if (statusError) {
-            console.warn('Failed to update challenger status to in_battle:', statusError);
+        // Set up a subscription to listen for when the challenge is accepted
+        const battleChannel = supabase.channel(`battle:${data.lobbyId}`);
+        
+        const handleChallengeAccepted = (newStatus: string) => {
+          if (newStatus === 'active') {
+            console.log('🚀 Challenge accepted! Redirecting to battle...');
+            
+            // Update challenger's online status to 'in_battle'
+            supabase
+              .from('online_players')
+              .update({ status: 'in_battle' })
+              .eq('id', user.id)
+              .then(({ error }) => {
+                if (error) console.warn('Failed to update challenger status:', error);
+              });
+            
+            // Show success toast
+            toast({
+              title: 'Challenge Accepted!',
+              description: 'Entering battle arena...',
+              duration: 3000,
+            });
+            
+            // Redirect to battle
+            router.push(`/game/arena/battle-v2/${data.lobbyId}`);
+            
+            // Clean up subscription
+            battleChannel.unsubscribe();
           }
-        } catch (err) {
-          console.warn('Error updating challenger status:', err);
-        }
+        };
         
-        router.push(`/game/arena/battle-v2/${data.lobbyId}`);
+        battleChannel
+          // Listen for postgres changes (database updates)
+          .on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'battle_instances', filter: `id=eq.${data.lobbyId}` },
+            (payload) => {
+              console.log('🔄 Battle status updated via postgres:', payload);
+              handleChallengeAccepted(payload.new.status);
+            }
+          )
+          // Listen for broadcast events (from accept-challenge function)
+          .on('broadcast', { event: 'challenge_accepted' }, ({ payload }) => {
+            console.log('🔄 Challenge accepted via broadcast:', payload);
+            handleChallengeAccepted(payload.newState?.status);
+          })
+          .subscribe();
+          
+        // Clean up subscription after 60 seconds (challenge timeout)
+        setTimeout(() => {
+          battleChannel.unsubscribe();
+          console.log('🕐 Challenge subscription timed out');
+        }, 60000);
       }
     } catch (error: any) {
       console.error('Error sending challenge:', error);

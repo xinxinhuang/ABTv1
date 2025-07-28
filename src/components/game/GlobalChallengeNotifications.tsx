@@ -32,12 +32,28 @@ export function GlobalChallengeNotifications() {
         title: 'Error Accepting Challenge',
         description: error.message,
         variant: 'destructive',
+        duration: 5000,
       });
     } else {
       console.log('✅ [GLOBAL] Challenge accepted successfully');
+      
+      // Update player's online status to 'in_battle'
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('online_players')
+            .update({ status: 'in_battle' })
+            .eq('id', user.id);
+        }
+      } catch (err) {
+        console.warn('Failed to update online status:', err);
+      }
+      
       toast({
         title: 'Challenge Accepted!',
         description: 'Entering battle arena...',
+        duration: 3000,
       });
       
       // Navigate to the battle page

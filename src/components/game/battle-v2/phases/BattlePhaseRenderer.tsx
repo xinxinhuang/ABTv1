@@ -163,6 +163,29 @@ export const BattlePhaseRenderer: React.FC<BattlePhaseRendererProps> = ({
   // Render appropriate phase component based on battle status
   const renderPhase = () => {
     switch (battle.status) {
+      case 'pending':
+        return (
+          <div className="p-8 bg-yellow-900/20 border border-yellow-500 rounded-lg text-center">
+            <AlertTriangle className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-yellow-400 mb-2">Challenge Pending</h2>
+            <p className="text-yellow-300 mb-4">
+              Waiting for the opponent to accept the challenge...
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              The battle will begin once both players are ready.
+            </p>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                className="flex items-center space-x-2 mx-auto px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span>Check Status</span>
+              </button>
+            )}
+          </div>
+        );
+
       case 'active':
         return (
           <PhaseErrorBoundary phaseName="Card Selection" onRetry={onRefresh}>
