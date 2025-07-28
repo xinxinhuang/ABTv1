@@ -13,6 +13,7 @@ import { BattleInstance, HumanoidCard } from '@/types/battle-consolidated';
 import { getBattlePhaseDisplayName } from '@/lib/battle-v2/utils';
 
 import { BattleCompletedPhase } from './BattleCompletedPhase';
+import { BattleCompletedFallback } from './BattleCompletedFallback';
 import { BattleInProgressPhase } from './BattleInProgressPhase';
 import { CardSelectionPhase } from './CardSelectionPhase';
 import { CardsRevealedPhase } from './CardsRevealedPhase';
@@ -282,21 +283,15 @@ export const BattlePhaseRenderer: React.FC<BattlePhaseRendererProps> = ({
       case 'completed':
         if (!playerCard || !opponentCard) {
           return (
-            <div className="p-8 bg-yellow-900/20 border border-yellow-500 rounded-lg text-center">
-              <AlertTriangle className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-yellow-400 mb-2">Battle Completed</h2>
-              <p className="text-yellow-300 mb-4">
-                Battle is completed but card data is not available for display.
-              </p>
-              {onReturnToLobby && (
-                <button
-                  onClick={onReturnToLobby}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  Return to Lobby
-                </button>
-              )}
-            </div>
+            <PhaseErrorBoundary phaseName="Battle Completed (Loading)" onRetry={onRefresh}>
+              <BattleCompletedFallback
+                battle={battle}
+                user={user}
+                onReturnToLobby={onReturnToLobby}
+                onFindNewBattle={onFindNewBattle}
+                onRefresh={onRefresh}
+              />
+            </PhaseErrorBoundary>
           );
         }
         

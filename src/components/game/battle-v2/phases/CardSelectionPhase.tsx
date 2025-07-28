@@ -5,9 +5,11 @@
 
 'use client';
 
-import React, { useState } from 'react';
-import { Loader2, Clock, User, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, Clock, User, Users, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
+
+import { createClient } from '@/lib/supabase/client';
 
 import { BattleInstance } from '@/types/battle-consolidated';
 import { useBattleActions } from '@/hooks/battle-v2/useBattleActions';
@@ -34,7 +36,13 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
   onCardSelected,
   onRefresh
 }) => {
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  // Persist selected card in sessionStorage to survive refreshes
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(`selected-card-${battle.id}`) || null;
+    }
+    return null;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Hooks
@@ -45,11 +53,39 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
   const isChallenger = user.id === battle.challenger_id;
   const opponentId = isChallenger ? battle.opponent_id : battle.challenger_id;
 
+  // Clear persisted selection if player has already selected
+  React.useEffect(() => {
+    if (playerHasSelected && typeof window !== 'undefined') {
+      sessionStorage.removeItem(`selected-card-${battle.id}`);
+      setSelectedCardId(null);
+    }
+  }, [playerHasSelected, battle.id]);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(`selected-card-${battle.id}`);
+      }
+    };
+  }, [battle.id]);
+
   // Handle card selection
   const handleCardSelect = (cardId: string) => {
     if (playerHasSelected || isSubmitting) return;
     
-    setSelectedCardId(prev => prev === cardId ? null : cardId);
+    const newSelection = selectedCardId === cardId ? null : cardId;
+    setSelectedCardId(newSelection);
+    
+    // Persist selection in sessionStorage
+    if (typeof window !== 'undefined') {
+      if (newSelection) {
+        sessionStorage.setItem(`selected-card-${battle.id}`, newSelection);
+      } else {
+        sessionStorage.removeItem(`selected-card-${battle.id}`);
+      }
+    }
+    
     clearError();
   };
 
@@ -67,6 +103,11 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
     
     try {
       await selectCard(selectedCardId);
+      
+      // Clear the persisted selection since it was successfully submitted
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(`selected-card-${battle.id}`);
+      }
       
       // Notify parent component
       if (onCardSelected) {
@@ -136,10 +177,21 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
             <p className="text-xl text-gray-300">Both players have submitted their cards!</p>
             <p className="text-lg text-gray-400">Calculating battle results...</p>
             
-            <div className="mt-6 p-4 bg-blue-900/20 border border-blue-500 rounded-lg">
+            <div className="mt-6 p-4 bg-blue-900/20 border border-blue-500 rounded-lg space-y-3">
               <p className="text-blue-400 font-semibold">
                 ⚔️ Battle in progress! Results will appear shortly...
               </p>
+              <p className="text-sm text-blue-300">
+                Results should appear automatically. If they don't, you can check manually.
+              </p>
+              {onRefresh && (
+                <button
+                  onClick={onRefresh}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  🔄 Check Results Now
+                </button>
+              )}
             </div>
 
             {lastUpdateTime && (
@@ -170,17 +222,13 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
           <h2 className="text-3xl font-bold text-green-400">Card Selected!</h2>
           <p className="text-xl text-gray-300">Waiting for your opponent...</p>
           
-          {/* Battle status */}
-          <div className="flex justify-center space-x-8 mt-8">
-            <div className="flex items-center space-x-2 text-green-400">
-              <User className="h-5 w-5" />
-              <span className="font-semibold">You: Ready</span>
-            </div>
-            <div className="flex items-center space-x-2 text-gray-400">
-              <Users className="h-5 w-5" />
-              <span className="font-semibold">Opponent: Selecting...</span>
-            </div>
-          </div>
+          {/* Battle status with real-time opponent monitoring */}
+          <OpponentStatusMonitor 
+            battle={battle}
+            user={user}
+            opponentHasSelected={opponentHasSelected}
+            onForfeit={onRefresh} // Use refresh as forfeit for now, can be enhanced later
+          />
 
           {lastUpdateTime && (
             <p className="text-sm text-gray-500">
@@ -263,6 +311,232 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Component to monitor opponent's real-time status
+interface OpponentStatusMonitorProps {
+  battle: BattleInstance;
+  user: SupabaseUser;
+  opponentHasSelected: boolean;
+  onForfeit?: () => void;
+}
+
+const OpponentStatusMonitor: React.FC<OpponentStatusMonitorProps> = ({
+  battle,
+  user,
+  opponentHasSelected,
+  onForfeit
+}) => {
+  const [opponentOnline, setOpponentOnline] = useState<boolean | null>(null);
+  const [lastSeen, setLastSeen] = useState<string | null>(null);
+  const [timeWaiting, setTimeWaiting] = useState(0);
+  const supabase = createClient();
+
+  // Determine opponent ID
+  const opponentId = user.id === battle.challenger_id ? battle.opponent_id : battle.challenger_id;
+
+  // Monitor opponent's activity and online status
+  useEffect(() => {
+    if (!opponentId) return;
+
+    const checkOpponentActivity = async () => {
+      try {
+        // Method 1: Check if opponent has submitted a card (most reliable)
+        const { data: opponentCard } = await supabase
+          .from('battle_cards')
+          .select('created_at')
+          .eq('battle_id', battle.id)
+          .eq('player_id', opponentId)
+          .single();
+
+        if (opponentCard) {
+          // Opponent has submitted their card
+          setOpponentOnline(true);
+          setLastSeen(opponentCard.created_at);
+          return;
+        }
+
+        // Method 2: Try to check online_players table (might fail due to RLS)
+        try {
+          const { data: onlinePlayers, error } = await supabase
+            .from('online_players')
+            .select('id, last_seen, status');
+
+          if (!error && onlinePlayers) {
+            const opponentStatus = onlinePlayers.find(player => player.id === opponentId);
+            
+            if (opponentStatus) {
+              const lastSeenTime = new Date(opponentStatus.last_seen);
+              const now = new Date();
+              const timeDiff = now.getTime() - lastSeenTime.getTime();
+              
+              // Consider online if seen within last 3 minutes
+              const isOnline = timeDiff < 180000;
+              setOpponentOnline(isOnline);
+              setLastSeen(opponentStatus.last_seen);
+              console.log('✅ Opponent online status:', { isOnline, timeDiff: Math.floor(timeDiff/1000) + 's' });
+              return;
+            }
+          }
+        } catch (onlineError) {
+          console.warn('Cannot check online_players (RLS restriction):', onlineError.message);
+        }
+
+        // Method 3: Fallback - assume unknown status
+        console.log('⚠️ Cannot determine opponent status, showing as unknown');
+        setOpponentOnline(null);
+        
+      } catch (error) {
+        console.warn('Error checking opponent activity:', error);
+        setOpponentOnline(null);
+      }
+    };
+
+    // Check immediately
+    checkOpponentActivity();
+
+    // Check every 15 seconds (less frequent to reduce errors)
+    const interval = setInterval(checkOpponentActivity, 15000);
+
+    return () => clearInterval(interval);
+  }, [opponentId, battle.id, supabase]);
+
+  // Track waiting time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeWaiting(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Format waiting time
+  const formatWaitTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get opponent status display
+  const getOpponentStatus = () => {
+    if (opponentHasSelected) {
+      return {
+        text: 'Ready',
+        color: 'text-green-400',
+        icon: <User className="h-5 w-5" />,
+        description: 'Opponent has selected their card'
+      };
+    }
+
+    if (opponentOnline === false) {
+      return {
+        text: 'May be offline',
+        color: 'text-red-400',
+        icon: <WifiOff className="h-5 w-5" />,
+        description: 'Opponent may have left the battle'
+      };
+    }
+
+    if (opponentOnline === true) {
+      return {
+        text: 'Selecting...',
+        color: 'text-yellow-400',
+        icon: <Wifi className="h-5 w-5" />,
+        description: 'Opponent is choosing their card'
+      };
+    }
+
+    return {
+      text: 'Status unknown',
+      color: 'text-gray-400',
+      icon: <Users className="h-5 w-5" />,
+      description: 'Cannot determine opponent status'
+    };
+  };
+
+  const opponentStatus = getOpponentStatus();
+
+  return (
+    <div className="space-y-4">
+      {/* Battle status */}
+      <div className="flex justify-center space-x-8 mt-8">
+        <div className="flex items-center space-x-2 text-green-400">
+          <User className="h-5 w-5" />
+          <span className="font-semibold">You: Ready</span>
+        </div>
+        <div className={`flex items-center space-x-2 ${opponentStatus.color}`}>
+          {opponentStatus.icon}
+          <span className="font-semibold">Opponent: {opponentStatus.text}</span>
+        </div>
+      </div>
+
+      {/* Waiting time and status details */}
+      <div className="text-center space-y-2">
+        <p className="text-sm text-gray-400">
+          Waiting time: {formatWaitTime(timeWaiting)}
+        </p>
+        
+        <p className="text-xs text-gray-500">
+          {opponentStatus.description}
+        </p>
+        
+        {opponentOnline === false && timeWaiting > 60 && (
+          <div className="p-3 bg-red-900/20 border border-red-500 rounded-lg">
+            <div className="flex items-center justify-center space-x-2 text-red-400">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-sm font-semibold">Opponent may have left</span>
+            </div>
+            <p className="text-xs text-red-300 mt-1">
+              No recent activity detected from your opponent
+            </p>
+          </div>
+        )}
+
+        {opponentOnline === null && timeWaiting > 30 && (
+          <div className="p-3 bg-gray-900/20 border border-gray-500 rounded-lg">
+            <div className="flex items-center justify-center space-x-2 text-gray-400">
+              <Users className="h-4 w-4" />
+              <span className="text-sm font-semibold">Cannot monitor opponent status</span>
+            </div>
+            <p className="text-xs text-gray-300 mt-1">
+              System limitations prevent real-time opponent monitoring
+            </p>
+          </div>
+        )}
+
+        {timeWaiting > 90 && (
+          <div className="p-3 bg-yellow-900/20 border border-yellow-500 rounded-lg space-y-3">
+            <div className="flex items-center justify-center space-x-2 text-yellow-400">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm font-semibold">
+                {timeWaiting > 180 ? 'Very long wait time' : 'Long wait time detected'}
+              </span>
+            </div>
+            <p className="text-xs text-yellow-300">
+              {opponentOnline === false 
+                ? "Your opponent may have left the battle."
+                : opponentOnline === null
+                ? "Cannot determine if opponent is still active."
+                : "Your opponent may be taking their time to choose."
+              }
+            </p>
+            
+            {timeWaiting > 120 && (
+              <div className="flex justify-center space-x-2">
+                <button
+                  onClick={onForfeit}
+                  disabled={!onForfeit}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+                >
+                  Return to Lobby
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -34,6 +34,7 @@ export interface BattleInstance {
   winner_id?: string;
   completed_at?: string;
   updated_at?: string;
+  explanation?: string;
 }
 
 /**

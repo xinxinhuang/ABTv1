@@ -65,7 +65,8 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
         status: battleData.status,
         winner_id: battleData.winner_id,
         completed_at: battleData.completed_at,
-        updated_at: battleData.updated_at
+        updated_at: battleData.updated_at,
+        explanation: battleData.explanation
       };
 
       console.log('🔄 Battle fetched with status:', battleInstance.status);
@@ -98,7 +99,13 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
     if (!user) return;
 
     try {
-      // Fetch battle selections 
+      // For completed battles, we need to fetch card data differently since cards may have been transferred
+      if (battleInstance.status === 'completed') {
+        await fetchCompletedBattleCards(battleInstance);
+        return;
+      }
+
+      // Fetch battle selections for active battles
       const { data: battleCards, error: cardsError } = await supabase
         .from('battle_cards')
         .select('*, player_cards(*)')
@@ -152,6 +159,120 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
   }, [user, supabase]);
 
   /**
+   * Fetch battle cards for completed battles, including transferred cards
+   */
+  const fetchCompletedBattleCards = useCallback(async (battleInstance: BattleInstance) => {
+    if (!user) return;
+
+    try {
+      // Get the original battle cards to know which cards were used
+      const { data: battleCards, error: cardsError } = await supabase
+        .from('battle_cards')
+        .select('player_id, card_id')
+        .eq('battle_id', battleInstance.id);
+
+      if (cardsError || !battleCards) {
+        console.error('Error fetching battle cards:', cardsError);
+        // Fall back to regular card fetching if no cards found
+        await fetchRegularBattleCards(battleInstance);
+        return;
+      }
+
+      const userCardEntry = battleCards.find(c => c.player_id === user.id);
+      const opponentCardEntry = battleCards.find(c => c.player_id !== user.id);
+
+      if (!userCardEntry || !opponentCardEntry) {
+        console.error('Could not find card entries for both players');
+        return;
+      }
+
+      // For completed battles, we need to fetch cards by their IDs directly
+      // The transferred card might now belong to the winner, but we still need to show it
+      const cardIds = [userCardEntry.card_id, opponentCardEntry.card_id];
+      
+      const { data: allCards, error: allCardsError } = await supabase
+        .from('player_cards')
+        .select('*')
+        .in('id', cardIds);
+
+      if (allCardsError || !allCards) {
+        console.error('Error fetching cards by IDs:', allCardsError);
+        return;
+      }
+
+      // Find the cards by matching IDs
+      const userCard = allCards.find(c => c.id === userCardEntry.card_id);
+      const opponentCard = allCards.find(c => c.id === opponentCardEntry.card_id);
+
+      // Validate and set cards
+      let validUserCard: HumanoidCard | null = null;
+      if (userCard && isHumanoidCard(userCard)) {
+        validUserCard = userCard;
+      }
+
+      let validOpponentCard: HumanoidCard | null = null;
+      if (opponentCard && isHumanoidCard(opponentCard)) {
+        validOpponentCard = opponentCard;
+      }
+
+      setPlayerCard(validUserCard);
+      setOpponentCard(validOpponentCard);
+      setPlayerHasSelected(true);
+      setOpponentHasSelected(true);
+
+      console.log('🏁 Completed battle cards fetched:', {
+        userCard: !!validUserCard,
+        opponentCard: !!validOpponentCard,
+        userWon: battleInstance.winner_id === user.id,
+        battleExplanation: battleInstance.explanation || 'No explanation available'
+      });
+
+    } catch (err) {
+      console.error('Error fetching completed battle cards:', err);
+    }
+  }, [user, supabase]);
+
+  /**
+   * Fallback method to fetch battle cards normally
+   */
+  const fetchRegularBattleCards = useCallback(async (battleInstance: BattleInstance) => {
+    if (!user) return;
+
+    try {
+      const { data: battleCards, error: cardsError } = await supabase
+        .from('battle_cards')
+        .select('*, player_cards(*)')
+        .eq('battle_id', battleInstance.id);
+
+      if (cardsError || !battleCards) {
+        console.error('Error fetching battle cards:', cardsError);
+        return;
+      }
+
+      const userCardData = battleCards.find(c => c.player_id === user.id);
+      const opponentCardData = battleCards.find(c => c.player_id !== user.id);
+
+      let userCard: HumanoidCard | null = null;
+      if (userCardData && userCardData.player_cards && isHumanoidCard(userCardData.player_cards)) {
+        userCard = userCardData.player_cards;
+      }
+
+      let opponentCard: HumanoidCard | null = null;
+      if (opponentCardData && opponentCardData.player_cards && isHumanoidCard(opponentCardData.player_cards)) {
+        opponentCard = opponentCardData.player_cards;
+      }
+      
+      setPlayerCard(userCard);
+      setOpponentCard(opponentCard);
+      setPlayerHasSelected(!!userCardData);
+      setOpponentHasSelected(!!opponentCardData);
+
+    } catch (err) {
+      console.error('Error fetching regular battle cards:', err);
+    }
+  }, [user, supabase]);
+
+  /**
    * Refresh battle data
    */
   const refresh = useCallback(async () => {
@@ -183,10 +304,21 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
       console.log('🚀 Both players have submitted, refreshing battle data...');
       console.log('🚀 Expected new battle status:', payload.battle_status);
       
-      // Add a small delay to ensure database updates are complete
+      // Refresh multiple times to ensure we catch the battle completion
       setTimeout(() => {
+        console.log('🔄 First refresh after both submitted');
         refresh();
       }, 1000);
+      
+      setTimeout(() => {
+        console.log('🔄 Second refresh after both submitted');
+        refresh();
+      }, 3000);
+      
+      setTimeout(() => {
+        console.log('🔄 Third refresh after both submitted');
+        refresh();
+      }, 6000);
     } else {
       console.log('⏳ Not both submitted yet, current status:', {
         playerHasSelected: payload.player_id === user?.id ? true : playerHasSelected,
@@ -236,25 +368,31 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
     }
   }, [battleId, user, refresh]);
 
-  // Periodic refresh for active battles to ensure UI stays in sync
+  // Periodic refresh for battles that need monitoring
   useEffect(() => {
     if (!battle || !user) return;
 
-    // Only set up periodic refresh for active battles
-    if (['active', 'cards_revealed'].includes(battle.status)) {
-      console.log('🔄 Setting up periodic refresh for active battle');
+    // Set up periodic refresh when both players have selected cards or battle is processing
+    const needsMonitoring = (
+      battle.status === 'cards_revealed' || 
+      battle.status === 'in_progress' ||
+      (battle.status === 'active' && playerHasSelected && opponentHasSelected)
+    );
+
+    if (needsMonitoring) {
+      console.log('🔄 Setting up periodic refresh for battle monitoring, status:', battle.status, 'both selected:', playerHasSelected && opponentHasSelected);
       
       const interval = setInterval(() => {
-        console.log('🔄 Periodic refresh triggered');
+        console.log('🔄 Periodic refresh triggered for battle resolution');
         refresh();
-      }, 5000); // Refresh every 5 seconds
+      }, 3000); // Refresh every 3 seconds for faster resolution detection
 
       return () => {
         console.log('🔄 Clearing periodic refresh');
         clearInterval(interval);
       };
     }
-  }, [battle?.status, user, refresh]);
+  }, [battle?.status, playerHasSelected, opponentHasSelected, user, refresh]);
 
   // Real-time subscription setup
   useEffect(() => {
@@ -264,9 +402,11 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
 
     channel
       .on('broadcast', { event: 'card_selected' }, (event) => {
+        console.log('📡 Real-time: card_selected event received');
         handleCardSelectionEvent(event.payload);
       })
       .on('broadcast', { event: 'battle_status_changed' }, (event) => {
+        console.log('📡 Real-time: battle_status_changed event received');
         console.log('🔄 Battle status changed:', event.payload);
         console.log('🔄 New status:', event.payload.new_status);
         
@@ -276,12 +416,26 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
         }, 1500);
       })
       .on('broadcast', { event: 'battle_resolution_error' }, (event) => {
+        console.error('📡 Real-time: battle_resolution_error event received');
         console.error('❌ Battle resolution error:', event.payload);
         // Still refresh to get the latest state
         setTimeout(() => {
           refresh();
         }, 2000);
       })
+      .on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'battle_instances', filter: `id=eq.${battleId}` },
+        (payload) => {
+          console.log('📡 Real-time: battle_instances UPDATE received');
+          console.log('🔄 Battle instance updated:', payload);
+          if (payload.new?.status !== battle?.status) {
+            console.log('🔄 Status changed from', battle?.status, 'to', payload.new?.status);
+            setTimeout(() => {
+              refresh();
+            }, 1000);
+          }
+        }
+      )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to battle-v2:${battleId}`);

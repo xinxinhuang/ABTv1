@@ -144,6 +144,40 @@ export default function BattlePage({ params }: BattlePageProps) {
     }
   }, [statePlayerHasSelected, stateOpponentHasSelected]);
 
+  // Monitor when both players have selected and trigger additional refreshes
+  useEffect(() => {
+    if (playerHasSelected && opponentHasSelected && battle?.status === 'active') {
+      console.log('🎯 Both players have selected cards! Setting up aggressive refresh for battle completion...');
+      
+      // Set up multiple refresh attempts to catch battle completion
+      const refreshTimeouts = [
+        setTimeout(() => {
+          console.log('🔄 Aggressive refresh #1 - checking for battle completion');
+          refresh();
+        }, 2000),
+        
+        setTimeout(() => {
+          console.log('🔄 Aggressive refresh #2 - checking for battle completion');
+          refresh();
+        }, 5000),
+        
+        setTimeout(() => {
+          console.log('🔄 Aggressive refresh #3 - checking for battle completion');
+          refresh();
+        }, 8000),
+        
+        setTimeout(() => {
+          console.log('🔄 Aggressive refresh #4 - final check for battle completion');
+          refresh();
+        }, 12000)
+      ];
+      
+      return () => {
+        refreshTimeouts.forEach(timeout => clearTimeout(timeout));
+      };
+    }
+  }, [playerHasSelected, opponentHasSelected, battle?.status, refresh]);
+
   // Loading state
   if (userLoading || battleLoading) {
     return (

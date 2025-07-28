@@ -89,12 +89,28 @@ export const BattleCompletedPhase: React.FC<BattleCompletedPhaseProps> = ({
               <div className="text-6xl mb-4">🏆</div>
               <h1 className="text-4xl font-bold text-green-400">Victory!</h1>
               <p className="text-xl text-green-300">Congratulations! You won the battle!</p>
+              <p className="text-lg text-green-200 mt-2">
+                You gained your opponent's <span className={`font-bold ${getCardRarityColor(opponentCard.rarity)}`}>
+                  {opponentCard.card_name}
+                </span>!
+              </p>
             </>
           ) : (
             <>
-              <div className="text-6xl mb-4">⚔️</div>
+              <div className="text-6xl mb-4">💔</div>
               <h1 className="text-4xl font-bold text-red-400">Defeat</h1>
-              <p className="text-xl text-red-300">Better luck next time, warrior!</p>
+              <p className="text-xl text-red-300">Your card has been lost in battle</p>
+              <div className="mt-4 p-4 bg-red-900/30 border border-red-600 rounded-lg">
+                <p className="text-lg text-red-200 mb-2">
+                  <strong>Card Lost:</strong> <span className={`font-bold ${getCardRarityColor(playerCard.rarity)}`}>
+                    {playerCard.card_name}
+                  </span>
+                </p>
+                <p className="text-sm text-red-300">
+                  Your {playerCard.rarity} card with {playerCard.attributes.str + playerCard.attributes.dex + playerCard.attributes.int} total power 
+                  has been transferred to your opponent.
+                </p>
+              </div>
             </>
           )}
           
@@ -309,12 +325,12 @@ export const BattleCompletedPhase: React.FC<BattleCompletedPhaseProps> = ({
         {userWon ? (
           <p className="text-green-300">
             🎉 <strong>Well fought!</strong> Your strategic card choice led you to victory. 
-            Keep building your collection to dominate future battles!
+            You've gained {opponentCard.card_name} to strengthen your collection!
           </p>
         ) : (
           <p className="text-blue-300">
-            💪 <strong>Every defeat is a lesson!</strong> Analyze your opponent's strategy 
-            and come back stronger. Victory awaits those who persevere!
+            💪 <strong>Every defeat teaches us something!</strong> Your {playerCard.card_name} fought valiantly but wasn't strong enough this time. 
+            Collect more powerful cards and return to reclaim your honor!
           </p>
         )}
       </div>
