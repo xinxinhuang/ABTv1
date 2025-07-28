@@ -77,21 +77,50 @@ export function GlobalChallengeNotifications() {
     channel
       .on('broadcast', { event: 'challenge' }, ({ payload }: { payload: ChallengePayload }) => {
         console.log('🎯 [GLOBAL] Incoming challenge notification received:', payload);
+        console.log('🎯 [GLOBAL] Current user ID:', user.id);
+        console.log('🎯 [GLOBAL] Toast function available:', typeof toast);
+        
         const { lobby_id, challenger_username } = payload;
 
         console.log('📨 [GLOBAL] Showing challenge toast for:', { lobby_id, challenger_username });
         
-        toast({
-          title: 'New Battle Challenge!',
-          description: `${challenger_username} has challenged you to a battle.`,
-          duration: 30000, // 30 seconds to respond
-          action: (
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" onClick={() => handleAccept(lobby_id)}>Accept</Button>
-              <Button size="sm" variant="outline" onClick={() => handleDecline(lobby_id)}>Decline</Button>
-            </div>
-          ),
-        });
+        try {
+          // Show a simple notification first to test
+          const challengeToast = toast({
+            title: `🎯 Challenge from ${challenger_username}!`,
+            description: `Click to accept the battle challenge. Battle ID: ${lobby_id}`,
+            duration: 30000, // 30 seconds to respond
+          });
+          
+          console.log('✅ [GLOBAL] Challenge toast created:', challengeToast);
+
+          // Also show buttons in a separate toast
+          const actionToast = toast({
+            title: 'Battle Actions',
+            description: 'Choose your response:',
+            duration: 30000,
+            action: (
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" onClick={() => {
+                  console.log('🎯 [GLOBAL] Accept button clicked for:', lobby_id);
+                  handleAccept(lobby_id);
+                }}>
+                  ✅ Accept
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  console.log('🎯 [GLOBAL] Decline button clicked for:', lobby_id);
+                  handleDecline(lobby_id);
+                }}>
+                  ❌ Decline
+                </Button>
+              </div>
+            ),
+          });
+          
+          console.log('✅ [GLOBAL] Action toast created:', actionToast);
+        } catch (error) {
+          console.error('❌ [GLOBAL] Error creating toast:', error);
+        }
       })
       .subscribe((status, error) => {
         console.log(`🔌 [GLOBAL] Challenge subscription status: ${status} for channel invites:${user.id}`);

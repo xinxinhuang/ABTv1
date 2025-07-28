@@ -4,8 +4,18 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { user_id } = await request.json();
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    
+    // Handle empty or malformed JSON
+    let user_id;
+    try {
+      const body = await request.json();
+      user_id = body.user_id;
+    } catch (jsonError) {
+      console.error('JSON parsing error:', jsonError);
+      return NextResponse.json({ error: 'Invalid JSON data' }, { status: 400 });
+    }
 
     if (!user_id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });

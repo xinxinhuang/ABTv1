@@ -87,7 +87,12 @@ export default function AcceptChallengeModal({
       if (error) {
         toast({ title: 'Error accepting challenge', description: error.message, variant: 'destructive' });
       } else {
-        toast({ title: 'Challenge Accepted!', description: 'The battle is underway. Check the results soon.' });
+        toast({ 
+          title: 'Challenge Accepted!', 
+          description: 'The battle is underway. Check the results soon.',
+          duration: 3000 // Auto-dismiss after 3 seconds
+        });
+        
         onChallengeAccepted();
         onClose();
       }

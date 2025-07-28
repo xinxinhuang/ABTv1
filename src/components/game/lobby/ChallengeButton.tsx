@@ -65,6 +65,7 @@ export function ChallengeButton({ challengedPlayerId, disabled = false }: Challe
       toast({
         title: 'Challenge Sent!',
         description: 'Entering battle arena. Waiting for opponent...',
+        duration: 3000, // Auto-dismiss after 3 seconds
       });
 
       // Redirect challenger to battle arena immediately

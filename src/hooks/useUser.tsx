@@ -31,23 +31,28 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
 
   useEffect(() => {
     const getUserDetails = async (user: User) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      if (error) {
-        console.error('Error fetching user details:', error);
-      } else {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching user details:', error);
+          return;
+        }
+        
         setUserDetails(data);
         
-        // Register user as online when profile is loaded
-        try {
-          const username = data.username || 'Anonymous';
-          await onlinePlayersService.registerOnline(user, username);
-        } catch (err) {
+        // Register user as online when profile is loaded (non-blocking)
+        // Don't await this to prevent hanging the loading state
+        const username = data.username || 'Anonymous';
+        onlinePlayersService.registerOnline(user, username).catch(err => {
           console.error('Failed to register online status:', err);
-        }
+        });
+      } catch (err) {
+        console.error('Error in getUserDetails:', err);
       }
     };
 
@@ -60,47 +65,65 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
     };
 
     const handleSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const sessionUser = session?.user ?? null;
-      setUser(sessionUser);
-      if (sessionUser) {
-        await getUserDetails(sessionUser);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const sessionUser = session?.user ?? null;
+        setUser(sessionUser);
+        if (sessionUser) {
+          await getUserDetails(sessionUser);
+        }
+      } catch (err) {
+        console.error('Error in handleSession:', err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     handleSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const sessionUser = session?.user ?? null;
-      
-      // Handle sign out - cleanup online status before clearing user data
-      if (event === 'SIGNED_OUT' && user) {
-        await handleUserSignOut(user.id);
+      try {
+        const sessionUser = session?.user ?? null;
+        
+        // Handle sign out - cleanup online status before clearing user data
+        if (event === 'SIGNED_OUT' && user) {
+          handleUserSignOut(user.id).catch(err => {
+            console.error('Failed to handle user sign out:', err);
+          });
+        }
+        
+        setUser(sessionUser);
+        if (sessionUser) {
+          await getUserDetails(sessionUser);
+        } else {
+          setUserDetails(null);
+        }
+      } catch (err) {
+        console.error('Error in auth state change:', err);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setUser(sessionUser);
-      if (sessionUser) {
-        await getUserDetails(sessionUser);
-      } else {
-        setUserDetails(null);
-      }
-      setIsLoading(false);
     });
 
     // Cleanup function to handle page unload
     const handleBeforeUnload = () => {
       if (user) {
         // Use sendBeacon for more reliable cleanup during page unload
-        const data = JSON.stringify({
-          user_id: user.id
-        });
-        
-        // Fallback to regular cleanup if sendBeacon fails
         try {
-          navigator.sendBeacon('/api/user/offline', data);
+          const data = JSON.stringify({
+            user_id: user.id
+          });
+          
+          // Create a Blob with proper content type for sendBeacon
+          const blob = new Blob([data], { type: 'application/json' });
+          
+          if (!navigator.sendBeacon('/api/user/offline', blob)) {
+            // Fallback to regular cleanup if sendBeacon fails
+            onlinePlayersService.unregisterOnline(user.id).catch(console.error);
+          }
         } catch (err) {
-          onlinePlayersService.unregisterOnline(user.id);
+          console.error('Error in beforeunload cleanup:', err);
+          onlinePlayersService.unregisterOnline(user.id).catch(console.error);
         }
       }
     };

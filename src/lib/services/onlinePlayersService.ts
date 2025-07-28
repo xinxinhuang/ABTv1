@@ -23,7 +23,12 @@ export const onlinePlayersService = {
     if (!user) return;
     
     try {
-      const { error } = await supabase
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Registration timeout')), 5000);
+      });
+      
+      const registrationPromise = supabase
         .from('online_players')
         .upsert({
           id: user.id,
@@ -33,6 +38,8 @@ export const onlinePlayersService = {
         }, {
           onConflict: 'id'
         });
+      
+      const { error } = await Promise.race([registrationPromise, timeoutPromise]) as any;
         
       if (error) {
         console.error('Error registering online status:', {
@@ -58,6 +65,10 @@ export const onlinePlayersService = {
       this.startHeartbeat(user.id);
     } catch (err) {
       console.error('Failed to register online status:', err);
+      // Don't show toast for timeout errors to avoid spam
+      if (err instanceof Error && err.message !== 'Registration timeout') {
+        toast.error('Failed to register online status');
+      }
     }
   },
   

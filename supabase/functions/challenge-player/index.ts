@@ -30,12 +30,21 @@ serve(async (req: Request) => {
 
     if (player1_id === player2_id) throw new Error('You cannot challenge yourself.');
 
-    // Verify both players exist in auth.users
+    // Verify both players exist and get their usernames from profiles
     const { data: player1Data, error: player1Error } = await supabaseAdmin.auth.admin.getUserById(player1_id);
     if (player1Error || !player1Data.user) throw new Error('Challenger does not exist.');
 
     const { data: player2Data, error: player2Error } = await supabaseAdmin.auth.admin.getUserById(player2_id);
     if (player2Error || !player2Data.user) throw new Error('Challenged player does not exist.');
+
+    // Get challenger's username from profiles table
+    const { data: player1Profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('username')
+      .eq('id', player1_id)
+      .single();
+    
+    const challengerUsername = player1Profile?.username || 'Anonymous Player';
 
     // Create a new battle instance
     const { data: newLobby, error: createError } = await supabaseAdmin
@@ -62,7 +71,7 @@ serve(async (req: Request) => {
     
     console.log('Sending challenge notification:', {
       lobby_id: newLobby.id,
-      challenger_username: player1Data.user.user_metadata.username || 'An unknown player',
+      challenger_username: challengerUsername,
     });
     
     const broadcastResult = await channel.send({
@@ -70,7 +79,7 @@ serve(async (req: Request) => {
       event: 'challenge',
       payload: { 
         lobby_id: newLobby.id,
-        challenger_username: player1Data.user.user_metadata.username || 'An unknown player',
+        challenger_username: challengerUsername,
       },
     });
     

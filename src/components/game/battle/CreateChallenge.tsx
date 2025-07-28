@@ -118,7 +118,11 @@ export default function CreateChallenge({ opponentId }: CreateChallengeProps) {
         return;
       }
       
-      toast({ title: 'Challenge Created!', description: 'Your challenge is now live in the lobby.' });
+      toast({ 
+        title: 'Challenge Created!', 
+        description: 'Your challenge is now live in the lobby.',
+        duration: 4000 // Auto-dismiss after 4 seconds
+      });
       setSelectedCard(null);
       // Refresh card list after staking one
       setPlayerCards(prev => prev.filter(c => c.id !== selectedCard.id));
