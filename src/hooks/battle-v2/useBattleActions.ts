@@ -4,9 +4,10 @@
  */
 
 import { useState, useCallback } from 'react';
+
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
-import { BattleErrorCode } from '@/types/battle-v2';
+
 import { UseBattleActionsReturn } from './types';
 import { useBattleBroadcast } from './useBattleRealtime';
 

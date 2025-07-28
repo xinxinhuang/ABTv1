@@ -1,8 +1,7 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { generateCard } from '@/lib/game/cardGeneration';
-import { ActiveTimer } from '@/types/game';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+
 import { 
   withErrorHandler, 
   AuthError, 
@@ -12,6 +11,8 @@ import {
   requireUser,
   checkRateLimit
 } from '@/lib/utils/errorHandler';
+import { ActiveTimer } from '@/types/game';
+import { generateCard } from '@/lib/game/cardGeneration';
 
 async function openPackHandler(request: Request) {
   // Rate limiting

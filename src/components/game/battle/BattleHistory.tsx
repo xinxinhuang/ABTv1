@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useUser } from '@/hooks/useUser';
-import { Button } from '@/components/ui/Button';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { useUser } from '@/hooks/useUser';
 
 type BattleHistoryItem = {
   id: string;

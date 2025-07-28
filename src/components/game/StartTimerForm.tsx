@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
 import {
   Select,
   SelectContent,
@@ -13,7 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Label';
+import { supabase } from '@/lib/supabase/client';
 
 interface StartTimerFormProps {
   onTimerStart?: () => void;

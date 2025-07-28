@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+
 import { Card, ActiveTimer, BattleInstance } from '@/types/game';
+import { supabase } from '@/lib/supabase/client';
 
 interface GameState {
   // Cards

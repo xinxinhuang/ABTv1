@@ -4,11 +4,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+
+import { HumanoidCard, BattleInstance } from '@/types/battle-consolidated';
 import { createClient } from '@/lib/supabase/client';
-import { useUser } from '@/hooks/useUser';
-import { HumanoidCard, BattleInstance } from '@/types/battle-v2';
-import { UseBattleStateReturn } from './types';
 import { isHumanoidCard, validateBattleState } from '@/lib/battle-v2/validation';
+import { useUser } from '@/hooks/useUser';
+
+import { UseBattleStateReturn } from './types';
 
 /**
  * Custom hook for managing battle state
@@ -137,7 +139,7 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
   /**
    * Handle real-time updates for card selections
    */
-  const handleCardSelectionEvent = useCallback((payload) => {
+  const handleCardSelectionEvent = useCallback((payload: any) => {
     console.log('Real-time event received: card_selected', payload);
 
     if (payload.player_id === user?.id) {

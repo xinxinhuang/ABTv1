@@ -1,9 +1,11 @@
 'use client';
 
 import { motion } from 'framer-motion';
+
+import { BattleSelection } from '@/types/battle-consolidated';
 import { Button } from '@/components/ui/Button';
-import { useUser } from '../../../hooks/useUser';
-import { BattleInstance, BattleSelection } from '@/types/battle';
+
+import { useUser } from '@/hooks/useUser';
 
 interface BattleResultsProps {
   battle: BattleInstance;

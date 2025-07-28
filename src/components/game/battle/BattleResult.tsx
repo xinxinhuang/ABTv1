@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Button } from '@/components/ui/Button';
-import { BattleCard } from './CardSelector';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+
+import { BattleCard } from './CardSelector';
 
 interface BattleResultProps {
   battleId: string;

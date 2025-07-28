@@ -2,7 +2,7 @@
  * Battle V2 Utility Types and Constants
  */
 
-import { HumanoidCard, BattleStatus } from '@/types/battle-v2';
+import { HumanoidCard, BattleStatus } from '@/types/battle-consolidated';
 
 /**
  * Battle configuration constants

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BattleInstance } from '@/types/battle';
 
 interface GameLogProps {
   battleState: BattleInstance | null;

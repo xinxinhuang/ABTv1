@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/Button';
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { createClient } from '@/lib/supabase/client';
 
 interface BattleDebugProps {
   battleId: string;

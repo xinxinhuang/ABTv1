@@ -1,6 +1,7 @@
-import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+
+import { createClient } from '@/lib/supabase/client';
 
 const supabase = createClient();
 

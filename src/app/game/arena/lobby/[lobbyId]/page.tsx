@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { useUser } from '@/hooks/useUser';
 
 import { CardSelector, BattleCard } from '@/components/game/battle/CardSelector';
 import { PlayerStatus } from '@/components/game/battle/PlayerStatus';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/useUser';
 
 export default function PreBattleRoomPage() {
   const supabase = createClient();

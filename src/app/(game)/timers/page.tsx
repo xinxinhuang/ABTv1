@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
-import { StartTimerForm } from '@/components/game/StartTimerForm';
-import { PackOpener } from '@/components/game/PackOpener';
-import { ActiveTimer, Card } from '@/types/game';
 import { toast } from 'sonner';
+import { useEffect, useState, useCallback } from 'react';
+
+import { ActiveTimer, Card } from '@/types/game';
+import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
+import { PackOpener } from '@/components/game/PackOpener';
+import { StartTimerForm } from '@/components/game/StartTimerForm';
 
 export default function TimersPage() {
   const supabase = createClientComponentClient();

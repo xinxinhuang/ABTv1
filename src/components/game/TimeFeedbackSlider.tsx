@@ -1,8 +1,9 @@
 'use client';
 
-import * as React from "react";
-import { useState, useRef, useCallback, useMemo } from "react";
+import * as React from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { motion } from "framer-motion";
+
 
 // Bronze/Silver/Gold color scheme
 const RARITY_COLORS = {

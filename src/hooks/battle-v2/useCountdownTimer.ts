@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+
 import { UseCountdownTimerReturn } from './types';
 
 /**

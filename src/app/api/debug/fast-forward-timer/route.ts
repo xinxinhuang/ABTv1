@@ -1,7 +1,8 @@
+import type { Database } from '@/types/database';
+
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import type { Database } from '@/types/database';
 
 export async function POST(request: Request) {
   const headers = new Headers({

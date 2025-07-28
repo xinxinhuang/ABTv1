@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
 import { createClient } from '@/lib/supabase/client';
-import { CardSelection } from './CardSelection';
+
 import { BattleGrid } from './BattleGrid';
+import { BattleInstance } from '@/types/battle';
 import { BattleResults } from './BattleResults';
-import { BattleInstance } from '../../../types/battle';
-import { useUser } from '../../../hooks/useUser';
+import { CardSelection } from './CardSelection';
+import { useUser } from '@/hooks/useUser';
 
 interface BattleArenaProps {
   initialLobby: BattleInstance;

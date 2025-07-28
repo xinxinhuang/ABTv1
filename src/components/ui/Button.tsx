@@ -1,9 +1,10 @@
 'use client';
 
-import { forwardRef } from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import { cva } from 'class-variance-authority';
+import { forwardRef } from 'react';
+
+import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
   // Base styles using CSS custom properties

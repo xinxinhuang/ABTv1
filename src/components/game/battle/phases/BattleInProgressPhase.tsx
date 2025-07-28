@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { BattleInstance } from '@/types/battle';
+
 import { Card } from '@/types/game';
+
 import { BattleGrid } from '../BattleGrid';
 
 interface BattleInProgressPhaseProps {

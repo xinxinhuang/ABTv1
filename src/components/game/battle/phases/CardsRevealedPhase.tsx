@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { Loader2, HelpCircle } from 'lucide-react';
-import { BattleInstance } from '@/types/battle';
-import { Card } from '@/types/game';
 import { User } from '@supabase/supabase-js';
+
+import { Card } from '@/types/game';
+
 import { CardTriangleDialog } from '../CardTriangleDialog';
 
 interface CardsRevealedPhaseProps {

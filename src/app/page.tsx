@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { SparklesText } from '@/components/ui/sparkles-text';
-import { Button } from '@/components/ui/Button';
-import { useUser } from '@/hooks/useUser';
 import { LogIn, UserPlus, Package, BookOpen } from 'lucide-react';
+
+import { Button } from '@/components/ui/Button';
+import { SparklesText } from '@/components/ui/sparkles-text';
+import { useUser } from '@/hooks/useUser';
 
 export default function Home() {
   const { user } = useUser();

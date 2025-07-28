@@ -5,15 +5,16 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, use } from 'react';
 import { Loader2, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
-import { useUser } from '@/hooks/useUser';
-import { useBattleState } from '@/hooks/battle-v2/useBattleState';
-import { useBattleRealtime } from '@/hooks/battle-v2/useBattleRealtime';
-import { BattlePhaseRenderer } from '@/components/game/battle-v2/phases/BattlePhaseRenderer';
+
+import { useRouter } from 'next/navigation';
+
 import { BattleDebugPanel } from '@/components/game/battle-v2/BattleDebugPanel';
-import { use } from 'react';
+import { BattlePhaseRenderer } from '@/components/game/battle-v2/phases/BattlePhaseRenderer';
+import { useBattleRealtime } from '@/hooks/battle-v2/useBattleRealtime';
+import { useBattleState } from '@/hooks/battle-v2/useBattleState';
+import { useUser } from '@/hooks/useUser';
 
 interface BattlePageProps {
   params: Promise<{ battleId: string }>;

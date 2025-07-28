@@ -3,7 +3,8 @@
  */
 
 import { Card } from '@/types/game';
-import { HumanoidCard, BattleStatus, BattleErrorCode } from '@/types/battle-v2';
+import { HumanoidCard, BattleStatus, BattleErrorCode } from '@/types/battle-consolidated';
+
 import { BATTLE_PHASE_TRANSITIONS } from './types';
 
 /**

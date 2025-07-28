@@ -7,9 +7,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { Loader2, Sword, Brain, Zap, Target, Clock } from 'lucide-react';
-import { BattleInstance, HumanoidCard } from '@/types/battle-v2';
-import { CardDisplay } from '../../CardDisplay';
-import { calculateBattleResult, getCardRarityColor } from '@/lib/battle-v2/utils';
+
+import { BattleInstance, HumanoidCard } from '@/types/battle-consolidated';
+import { calculateBattleResult } from '@/lib/battle-v2/utils';
+
+import { CardDisplay } from '@/components/game/CardDisplay';
 
 interface BattleInProgressPhaseProps {
   battle: BattleInstance;

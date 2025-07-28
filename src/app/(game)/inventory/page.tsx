@@ -1,6 +1,7 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { redirect } from 'next/navigation';
+
 import { InventoryDisplay } from '@/components/game/InventoryDisplay';
 import { PlayerInventory } from '@/types/game';
 

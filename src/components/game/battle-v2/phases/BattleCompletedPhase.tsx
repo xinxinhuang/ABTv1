@@ -6,12 +6,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Trophy, Target, RotateCcw, Home, Sword, Brain, Zap, Calendar, Clock } from 'lucide-react';
-import { BattleInstance, HumanoidCard } from '@/types/battle-v2';
+import { Target, RotateCcw, Home, Sword, Brain, Zap, Calendar, Clock } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { CardDisplay } from '../../CardDisplay';
+
+import { BattleInstance, HumanoidCard } from '@/types/battle-consolidated';
 import { Button } from '@/components/ui/Button';
 import { calculateBattleResult, getCardRarityColor } from '@/lib/battle-v2/utils';
+
+import { CardDisplay } from '@/components/game/CardDisplay';
 
 interface BattleCompletedPhaseProps {
   battle: BattleInstance;

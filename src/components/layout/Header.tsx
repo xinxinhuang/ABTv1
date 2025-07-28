@@ -1,10 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/Button';
-import { HamburgerMenu } from '@/components/navigation/HamburgerMenu';
 import { 
   Home, 
   Package, 
@@ -15,6 +11,11 @@ import {
   LogOut,
   BookOpen
 } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { HamburgerMenu } from '@/components/navigation/HamburgerMenu';
 import { supabase } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
 

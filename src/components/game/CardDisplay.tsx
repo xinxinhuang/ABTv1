@@ -1,8 +1,9 @@
-import { Card as PlayerCard } from '@/types/game';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
+
+import { Button } from '@/components/ui/Button';
+import { Card as PlayerCard } from '@/types/game';
+import { Card } from '@/components/ui/Card';
+import { cn } from '@/lib/utils/cn';
 
 interface CardDisplayProps {
   card: PlayerCard | null;

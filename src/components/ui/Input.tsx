@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@/lib/utils';
 import { Eye, EyeOff } from 'lucide-react';
+import { cva } from 'class-variance-authority';
+
+import { cn } from '@/lib/utils';
 
 const inputVariants = cva(
   // Base input styles using theme variables

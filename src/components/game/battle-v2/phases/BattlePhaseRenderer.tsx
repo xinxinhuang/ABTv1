@@ -5,15 +5,17 @@
 
 'use client';
 
-import React, { ErrorBoundary } from 'react';
+import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { BattleInstance, HumanoidCard, BattleStatus } from '@/types/battle-v2';
 import { User } from '@supabase/supabase-js';
+
+import { BattleInstance, HumanoidCard } from '@/types/battle-consolidated';
+import { getBattlePhaseDisplayName } from '@/lib/battle-v2/utils';
+
+import { BattleCompletedPhase } from './BattleCompletedPhase';
+import { BattleInProgressPhase } from './BattleInProgressPhase';
 import { CardSelectionPhase } from './CardSelectionPhase';
 import { CardsRevealedPhase } from './CardsRevealedPhase';
-import { BattleInProgressPhase } from './BattleInProgressPhase';
-import { BattleCompletedPhase } from './BattleCompletedPhase';
-import { getBattlePhaseDisplayName } from '@/lib/battle-v2/utils';
 
 interface BattlePhaseRendererProps {
   battle: BattleInstance | null;

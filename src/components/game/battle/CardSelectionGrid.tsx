@@ -1,12 +1,14 @@
 'use client';
 
+import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/types/game';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
-import { Card } from '@/types/game';
+
 import { CardDisplay } from '../CardDisplay';
-import { Button } from '@/components/ui/Button';
-import { Loader2 } from 'lucide-react';
 
 const BATTLE_DECK_SIZE = 5;
 

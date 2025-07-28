@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { Package, Clock, Coins } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { SparklesText } from '@/components/ui/sparkles-text';
+import { useEffect, useState } from 'react';
+
+import BoosterFeedbackSlider from '@/components/game/BoosterFeedbackSlider';
+import { ActiveTimer } from '@/types/game';
+import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PackOpener } from '@/components/game/PackOpener';
-import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
-import { ActiveTimer } from '@/types/game';
-import { motion } from 'framer-motion';
-import { Package, Clock, Coins } from 'lucide-react';
-import BoosterFeedbackSlider from '@/components/game/BoosterFeedbackSlider';
+import { SparklesText } from '@/components/ui/sparkles-text';
+import { supabase } from '@/lib/supabase/client';
 
 interface PlayerInventory {
   humanoid_packs: number;

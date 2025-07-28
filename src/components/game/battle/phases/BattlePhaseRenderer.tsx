@@ -1,13 +1,15 @@
 'use client';
 
 import React from 'react';
-import { BattleInstance, BattleSelection } from '@/types/battle';
-import { Card } from '@/types/game';
 import { User } from '@supabase/supabase-js';
+
+import { BattleSelection } from '@/types/battle-consolidated';
+import { Card } from '@/types/game';
+
+import { BattleCompletedPhase } from './BattleCompletedPhase';
+import { BattleInProgressPhase } from './BattleInProgressPhase';
 import { CardSelectionPhase } from './CardSelectionPhase';
 import { CardsRevealedPhase } from './CardsRevealedPhase';
-import { BattleInProgressPhase } from './BattleInProgressPhase';
-import { BattleCompletedPhase } from './BattleCompletedPhase';
 
 interface BattlePhaseRendererProps {
   battle: BattleInstance | null;

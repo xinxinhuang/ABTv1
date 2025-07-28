@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@/hooks/useUser';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'sonner';
+import { useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+
+import { useUser } from '@/hooks/useUser';
 
 export default function RealtimeChallengeNotifier() {
   const { user } = useUser();

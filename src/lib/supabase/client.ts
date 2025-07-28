@@ -1,5 +1,6 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@/types/database';
+
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Create a single Supabase client instance for client-side use
 const supabase = createClientComponentClient<Database>();

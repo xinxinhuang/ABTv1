@@ -4,11 +4,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+
+import { HumanoidCard } from '@/types/battle-consolidated';
 import { createClient } from '@/lib/supabase/client';
-import { useUser } from '@/hooks/useUser';
-import { HumanoidCard } from '@/types/battle-v2';
-import { UseHumanoidCardsReturn } from './types';
 import { isHumanoidCard } from '@/lib/battle-v2/validation';
+import { useUser } from '@/hooks/useUser';
+
+import { UseHumanoidCardsReturn } from './types';
 
 /**
  * Custom hook for fetching player's humanoid cards

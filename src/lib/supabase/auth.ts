@@ -1,5 +1,6 @@
-import { supabase } from './client';
 import { toast } from 'sonner';
+
+import { supabase } from './client';
 
 /**
  * Wrapper for authentication operations with proper error handling

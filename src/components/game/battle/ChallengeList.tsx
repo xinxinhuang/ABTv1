@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/Button';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+
 import AcceptChallengeModal from './AcceptChallengeModal';
 
 export default function ChallengeList() {

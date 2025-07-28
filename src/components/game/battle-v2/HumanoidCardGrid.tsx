@@ -7,10 +7,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { Loader2, Filter, SortAsc, SortDesc } from 'lucide-react';
-import { HumanoidCard } from '@/types/battle-v2';
-import { CardDisplay } from '../CardDisplay';
+
 import { Button } from '@/components/ui/Button';
+import { HumanoidCard } from '@/types/battle-consolidated';
 import { getCardRarityColor } from '@/lib/battle-v2/utils';
+
+import { CardDisplay } from '../CardDisplay';
 
 interface HumanoidCardGridProps {
   cards: HumanoidCard[];

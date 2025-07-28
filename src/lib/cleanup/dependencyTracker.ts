@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { DependencyGraph, FileAnalysis } from './types';
+
+import { DependencyGraph } from './types';
 import { UsageScanner } from './usageScanner';
 
 /**

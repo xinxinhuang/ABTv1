@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
+import { useState } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase/client';
 
 export default function DatabaseSetupPage() {
   const [isLoading, setIsLoading] = useState(false);

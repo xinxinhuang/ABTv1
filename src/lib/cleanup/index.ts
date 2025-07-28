@@ -6,8 +6,8 @@
  */
 
 export { CodeCleanupAnalyzer } from './analyzer';
-export { UsageScanner } from './usageScanner';
 export { DependencyTracker } from './dependencyTracker';
+export { UsageScanner } from './usageScanner';
 
 export {
   DEFAULT_CLEANUP_CONFIG,

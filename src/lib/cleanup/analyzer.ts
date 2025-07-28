@@ -1,183 +1,191 @@
-import { CleanupConfig, AnalysisResults, FileAnalysis } from './types';
-import { FileAnalyzer } from './fileAnalyzer';
-import { DependencyTracker } from './dependencyTracker';
-import { UsageScanner } from './usageScanner';
-import { DEFAULT_CLEANUP_CONFIG } from './config';
+import * as path from 'path';
+
+import { FileAnalysis, CleanupConfig, AnalysisResults } from './types';
+import { FileUsageScanner } from './fileScanner';
 
 /**
- * Main analyzer class that coordinates all cleanup analysis
+ * Main analyzer class that orchestrates the codebase analysis
  */
-export class CodeCleanupAnalyzer {
+export class CodebaseAnalyzer {
+  private scanner: FileUsageScanner;
   private config: CleanupConfig;
-  private fileAnalyzer: FileAnalyzer;
-  private dependencyTracker: DependencyTracker;
-  private usageScanner: UsageScanner;
 
-  constructor(config: CleanupConfig = DEFAULT_CLEANUP_CONFIG) {
+  constructor(config: CleanupConfig) {
+    this.scanner = new FileUsageScanner();
     this.config = config;
-    this.fileAnalyzer = new FileAnalyzer();
-    this.dependencyTracker = new DependencyTracker();
-    this.usageScanner = new UsageScanner();
   }
 
   /**
-   * Performs comprehensive analysis of the codebase
+   * Perform comprehensive codebase analysis
    */
-  async analyze(): Promise<AnalysisResults> {
+  async analyzeCodebase(): Promise<AnalysisResults> {
     console.log('Starting codebase analysis...');
     
-    // Analyze files
-    const fileAnalyses = await this.fileAnalyzer.analyzeFiles(this.config);
+    // Step 1: Scan all files in target directories
+    const allFiles: string[] = [];
+    for (const targetDir of this.config.targetDirectories) {
+      console.log(`Scanning directory: ${targetDir}`);
+      const files = await this.scanner.scanDirectory(targetDir);
+      allFiles.push(...files);
+    }
     
-    // Get unused files
-    const unusedFiles = this.fileAnalyzer.getRemovableFiles(fileAnalyses);
+    console.log(`Found ${allFiles.length} files to analyze`);
     
-    // Generate recommendations
-    const recommendations = this.generateRecommendations(fileAnalyses);
+    // Step 2: Filter files based on exclusion patterns
+    const filteredFiles = this.filterFiles(allFiles);
+    console.log(`Analyzing ${filteredFiles.length} files after filtering`);
     
-    // Assess risks
-    const riskAssessment = this.assessRisks(fileAnalyses);
-
-    const results: AnalysisResults = {
-      totalFilesAnalyzed: fileAnalyses.length,
-      unusedFiles,
-      duplicateTypes: [], // TODO: Implement type analysis
-      unusedImports: [], // TODO: Implement import analysis
-      recommendations,
-      riskAssessment,
-      analysisDate: new Date(),
-      configUsed: this.config
-    };
-
-    console.log(`Analysis complete. Found ${unusedFiles.length} unused files out of ${fileAnalyses.length} analyzed.`);
+    // Step 3: Analyze each file
+    const fileAnalyses: FileAnalysis[] = [];
+    for (const filePath of filteredFiles) {
+      try {
+        const analysis = await this.scanner.analyzeFile(filePath);
+        fileAnalyses.push(analysis);
+      } catch (error) {
+        console.warn(`Failed to analyze ${filePath}:`, error);
+      }
+    }
     
+    // Step 4: Build usage map
+    console.log('Building usage map...');
+    await this.scanner.buildUsageMap(fileAnalyses);
+    
+    // Step 5: Generate analysis results
+    const results = this.generateResults(fileAnalyses);
+    
+    console.log('Analysis complete!');
     return results;
   }
 
   /**
-   * Generates cleanup recommendations based on analysis
+   * Filter files based on exclusion patterns and preserve files
    */
-  private generateRecommendations(analyses: FileAnalysis[]) {
+  private filterFiles(files: string[]): string[] {
+    return files.filter(file => {
+      // Check preserve files
+      if (this.config.preserveFiles.some(preserve => file.includes(preserve))) {
+        return false;
+      }
+      
+      // Check exclusion patterns
+      if (this.config.excludePatterns.some(pattern => {
+        const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+        return regex.test(file);
+      })) {
+        return false;
+      }
+      
+      return true;
+    });
+  }
+
+  /**
+   * Generate comprehensive analysis results
+   */
+  private generateResults(fileAnalyses: FileAnalysis[]): AnalysisResults {
+    const unusedFiles = fileAnalyses.filter(file => !file.isUsed && file.canRemove);
+    
+    return {
+      totalFilesAnalyzed: fileAnalyses.length,
+      unusedFiles,
+      duplicateTypes: [], // Will be populated by type analysis
+      unusedImports: [], // Will be populated by import analysis
+      recommendations: this.generateRecommendations(fileAnalyses),
+      riskAssessment: this.generateRiskAssessment(fileAnalyses),
+    };
+  }
+
+  /**
+   * Generate cleanup recommendations
+   */
+  private generateRecommendations(fileAnalyses: FileAnalysis[]) {
     const recommendations = [];
     
-    const removableFiles = this.fileAnalyzer.getRemovableFiles(analyses);
-    if (removableFiles.length > 0) {
+    // Recommend removing unused files
+    const unusedFiles = fileAnalyses.filter(file => !file.isUsed && file.canRemove);
+    if (unusedFiles.length > 0) {
       recommendations.push({
-        type: 'remove_file' as const,
-        priority: 'high' as const,
-        description: `Remove ${removableFiles.length} unused files`,
-        affectedFiles: removableFiles.map(f => f.path),
-        estimatedImpact: `Reduce codebase by ${removableFiles.reduce((sum, f) => sum + f.size, 0)} bytes`,
-        riskLevel: 'low' as const
+        type: 'remove-file' as const,
+        priority: 'medium' as const,
+        description: `Remove ${unusedFiles.length} unused files`,
+        affectedFiles: unusedFiles.map(f => f.path),
+        estimatedImpact: `Reduce codebase by ${unusedFiles.reduce((sum, f) => sum + f.size, 0)} bytes`,
       });
     }
-
+    
     return recommendations;
   }
 
   /**
-   * Assesses risks of cleanup operations
+   * Generate risk assessment
    */
-  private assessRisks(analyses: FileAnalysis[]) {
-    const highRiskFiles = this.fileAnalyzer.getHighRiskFiles(analyses);
+  private generateRiskAssessment(fileAnalyses: FileAnalysis[]) {
+    const highRisk = fileAnalyses.filter(f => f.removalRisk === 'high').map(f => f.path);
+    const mediumRisk = fileAnalyses.filter(f => f.removalRisk === 'medium').map(f => f.path);
+    const lowRisk = fileAnalyses.filter(f => f.removalRisk === 'low').map(f => f.path);
     
     return {
-      highRiskFiles: highRiskFiles.map(f => f.path),
-      mediumRiskFiles: analyses.filter(a => a.removalRisk === 'medium').map(a => a.path),
-      lowRiskFiles: analyses.filter(a => a.removalRisk === 'low').map(a => a.path),
-      potentialBreakingChanges: highRiskFiles.map(f => f.path),
-      recommendedTestingAreas: ['Battle system functionality', 'Navigation', 'Type checking'],
-      overallRisk: highRiskFiles.length > 0 ? 'high' as const : 'low' as const
+      highRiskFiles: highRisk,
+      mediumRiskFiles: mediumRisk,
+      lowRiskFiles: lowRisk,
+      potentialBreakingChanges: highRisk,
+      recommendedTestingAreas: [
+        'Battle system functionality',
+        'Navigation and routing',
+        'Component rendering',
+        'Import resolution',
+      ],
     };
-  }  /**
-   
-* Generates a summary report of the analysis
-   */
-  generateSummaryReport(results: AnalysisResults): string {
-    const report = [];
-    
-    report.push('=== Code Cleanup Analysis Report ===');
-    report.push(`Analysis Date: ${results.analysisDate.toISOString()}`);
-    report.push(`Total Files Analyzed: ${results.totalFilesAnalyzed}`);
-    report.push(`Unused Files Found: ${results.unusedFiles.length}`);
-    report.push(`Overall Risk Level: ${results.riskAssessment.overallRisk}`);
-    report.push('');
-    
-    if (results.unusedFiles.length > 0) {
-      report.push('Unused Files:');
-      results.unusedFiles.forEach(file => {
-        report.push(`  - ${file.path} (${file.size} bytes, risk: ${file.removalRisk})`);
-      });
-      report.push('');
-    }
-    
-    if (results.recommendations.length > 0) {
-      report.push('Recommendations:');
-      results.recommendations.forEach(rec => {
-        report.push(`  - [${rec.priority.toUpperCase()}] ${rec.description}`);
-        report.push(`    Impact: ${rec.estimatedImpact}`);
-        report.push(`    Risk: ${rec.riskLevel}`);
-      });
-      report.push('');
-    }
-    
-    if (results.riskAssessment.highRiskFiles.length > 0) {
-      report.push('High Risk Files (review before removal):');
-      results.riskAssessment.highRiskFiles.forEach(file => {
-        report.push(`  - ${file}`);
-      });
-      report.push('');
-    }
-    
-    report.push('Recommended Testing Areas:');
-    results.riskAssessment.recommendedTestingAreas.forEach(area => {
-      report.push(`  - ${area}`);
-    });
-    
-    return report.join('\n');
   }
 
   /**
-   * Analyzes specific battle system v1 files
+   * Get dependency map from scanner
    */
-  async analyzeBattleV1Files(): Promise<FileAnalysis[]> {
-    const battleV1Config = {
-      ...this.config,
-      targetDirectories: [
-        'booster-game/src/hooks/battle',
-        'booster-game/src/lib/battle',
-        'booster-game/src/components/game/battle',
-        'booster-game/src/hooks/useBattle.ts'
-      ]
-    };
-
-    return this.fileAnalyzer.analyzeFiles(battleV1Config);
+  getDependencyMap() {
+    return this.scanner.getDependencyMap();
   }
 
   /**
-   * Quick check for battle system v1 usage
+   * Clear analysis cache
    */
-  async checkBattleV1Usage(): Promise<{ hasUsage: boolean; usageFiles: string[] }> {
-    const battleV1Files = [
-      'src/hooks/battle',
-      'src/lib/battle/battleLogic.ts',
-      'src/hooks/useBattle.ts'
-    ];
-
-    const usageFiles: string[] = [];
-    
-    for (const file of battleV1Files) {
-      const references = await this.usageScanner.findReferencesToFile(
-        file, 
-        'booster-game/src', 
-        this.config.excludePatterns
-      );
-      usageFiles.push(...references);
-    }
-
-    return {
-      hasUsage: usageFiles.length > 0,
-      usageFiles: [...new Set(usageFiles)]
-    };
+  clearCache() {
+    this.scanner.clearCache();
   }
+}
+
+/**
+ * Create default configuration for booster game analysis
+ */
+export function createDefaultConfig(): CleanupConfig {
+  return {
+    targetDirectories: [
+      path.resolve(process.cwd(), 'booster-game/src'),
+    ],
+    testBeforeRemoval: true,
+    createBackup: true,
+    dryRun: true,
+    excludePatterns: [
+      '*/node_modules/*',
+      '*/.next/*',
+      '*/.git/*',
+      '*/dist/*',
+      '*/build/*',
+    ],
+    preserveFiles: [
+      'layout.tsx',
+      'page.tsx',
+      'globals.css',
+      'favicon.ico',
+    ],
+    typeConsolidationRules: {
+      preferV2Types: true,
+      consolidateInterfaces: true,
+      removeDeprecatedTypes: true,
+    },
+    importOptimization: {
+      removeUnused: true,
+      organizeImports: true,
+      optimizePaths: true,
+    },
+  };
 }

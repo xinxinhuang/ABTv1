@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "@/components/ui/toaster";
+
 import "@/styles/theme.css";
-import { ThemeProvider } from '@/providers/ThemeProvider';
-import { UserContextProvider } from '@/hooks/useUser';
-import { Header } from '@/components/layout/Header';
+import { Geist, Geist_Mono } from "next/font/google";
+
 import { GlobalChallengeNotifications } from '@/components/game/GlobalChallengeNotifications';
+import { Header } from '@/components/layout/Header';
+import { ThemeProvider } from '@/providers/ThemeProvider';
+import { Toaster } from "@/components/ui/toaster";
+import { UserContextProvider } from '@/hooks/useUser';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

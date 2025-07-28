@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
 import Image from 'next/image';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/Card';
+import React from 'react';
+import { cva } from 'class-variance-authority';
 import { motion } from 'framer-motion';
+
+import { Card } from '@/components/ui/Card';
+import { cn } from '@/lib/utils';
 
 // Card rarity type
 export type CardRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';

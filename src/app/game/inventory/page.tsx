@@ -1,9 +1,10 @@
 'use client';
 
+import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+
 import { Card } from '@/types/game';
 import { CardDisplay } from '@/components/game/CardDisplay';
-import { Loader2 } from 'lucide-react';
 
 export default function InventoryPage() {
   const [cards, setCards] = useState<Card[]>([]);

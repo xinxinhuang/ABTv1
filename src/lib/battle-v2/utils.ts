@@ -2,7 +2,7 @@
  * Battle V2 Utility Functions
  */
 
-import { HumanoidCard, BattleCalculation, AttributeComparison } from '@/types/battle-v2';
+import { HumanoidCard, BattleCalculation, AttributeComparison } from '@/types/battle-consolidated';
 
 /**
  * Calculate battle result between two humanoid cards

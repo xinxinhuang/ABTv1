@@ -1,14 +1,16 @@
 'use client';
 
+import Link from 'next/link';
+import { Plus, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/Dialog';
-import { Button } from '../../ui/Button';
+
 import { Card } from '@/types/game';
 import { supabase, fetchPlayerCardsSafely } from '@/lib/supabase/client';
-import { toast } from 'sonner';
-import { Plus, Loader2 } from 'lucide-react';
-import { CardGrid } from '../../game/CardGrid';
-import Link from 'next/link';
+
+import { Button } from '@/components/ui/Button';
+import { CardGrid } from '@/components/game/CardGrid';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
 
 interface CreateChallengeModalProps {
   onChallengeCreated?: () => void;

@@ -1,10 +1,11 @@
+import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { redirect } from 'next/navigation';
+
+import { Card } from '@/types/game';
 import { CardCollection } from '@/components/game/CardCollection';
 import { CollectionHeader } from '@/components/game/CollectionHeader';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { Database } from '@/types/database';
-import { Card } from '@/types/game';
 
 async function getCards(
   supabase: ReturnType<typeof createServerComponentClient<Database>>,

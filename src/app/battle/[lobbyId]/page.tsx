@@ -1,7 +1,7 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 
 /**
  * Legacy Battle Page - Redirects to the new battle route
@@ -16,8 +16,8 @@ export default function BattlePage() {
 
   useEffect(() => {
     if (lobbyId) {
-      console.log(`Redirecting from legacy battle route to new battle route: /game/arena/battle/${lobbyId}`);
-      router.replace(`/game/arena/battle/${lobbyId}`);
+      console.log(`Redirecting from legacy battle route to new battle route: /game/arena/battle-v2/${lobbyId}`);
+      router.replace(`/game/arena/battle-v2/${lobbyId}`);
     }
   }, [lobbyId, router]);
 

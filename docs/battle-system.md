@@ -1,4 +1,7 @@
 Logic of the Battle System
+
+**Note**: This document describes the core battle mechanics. As of July 2025, the application uses the consolidated Battle System V2 exclusively. The legacy V1 system has been removed during a comprehensive code cleanup.
+
 The system's logic is clear, intuitive, and strategically engaging, built around a few core principles:
 
 1. Core Mechanics

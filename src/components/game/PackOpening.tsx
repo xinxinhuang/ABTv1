@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/Button';
-import { GameCard, type GameCardData } from '@/components/game/GameCard';
-import { cn } from '@/lib/utils';
+import React, { useState } from 'react';
 import { Package, Sparkles, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+import { Button } from '@/components/ui/Button';
+import { GameCard } from '@/components/game/GameCard';
+import { cn } from '@/lib/utils';
 
 export interface Pack {
   id: string;

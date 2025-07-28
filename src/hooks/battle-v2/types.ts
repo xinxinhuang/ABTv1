@@ -2,7 +2,7 @@
  * Hook interfaces for Battle V2 system
  */
 
-import { HumanoidCard, BattleInstance, BattleRealtimeEvent, BattleAction } from '@/types/battle-v2';
+import { HumanoidCard, BattleInstance, BattleRealtimeEvent } from '@/types/battle-consolidated';
 
 /**
  * useBattleState hook return type

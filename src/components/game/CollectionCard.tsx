@@ -1,8 +1,9 @@
 'use client';
 
+import { cva } from 'class-variance-authority';
+
 import { Card as PlayerCard } from '@/types/game';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils/cn';
 
 const cardRarityStyles = cva(

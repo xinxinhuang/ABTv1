@@ -1,7 +1,8 @@
-import { OnlinePlayersList } from '@/components/game/lobby/OnlinePlayersList';
-import { GameLayout, Card } from '@/components/layout/GameLayout';
-import { History } from 'lucide-react';
 import Link from 'next/link';
+import { History } from 'lucide-react';
+
+import { GameLayout, Card } from '@/components/layout/GameLayout';
+import { OnlinePlayersList } from '@/components/game/lobby/OnlinePlayersList';
 
 export default function ArenaLobbyPage() {
   return (

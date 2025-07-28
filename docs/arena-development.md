@@ -1,10 +1,12 @@
 # Arena Development Summary
 
-## Current Implementation (as of July 11, 2025)
+## Current Implementation (as of July 25, 2025)
 
 ### Overview
 
-We've implemented a real-time battle system for the ABT Booster Game that allows players to create and accept battle challenges with pre-selected cards. The system follows a "stake and play" model where players put up one of their cards as a stake, with the winner claiming the loser's card plus receiving a bonus card. The battle system follows a rock-paper-scissors style combat mechanic with card type advantages and attribute-based resolution, while leveraging Supabase for player authentication, battle state management, and card ownership transfers.
+We've implemented a consolidated real-time battle system (V2) for the ABT Booster Game that allows players to create and accept battle challenges with pre-selected humanoid cards. The system follows a "stake and play" model where players put up one of their cards as a stake, with the winner claiming the loser's card plus receiving a bonus card. The battle system follows a rock-paper-scissors style combat mechanic with card type advantages and attribute-based resolution, while leveraging Supabase for player authentication, battle state management, and card ownership transfers.
+
+**Note**: The legacy battle system (V1) has been completely removed as part of a comprehensive code cleanup. All battle functionality now uses the V2 system exclusively.
 
 ### Core Features
 
@@ -35,16 +37,28 @@ We've implemented a real-time battle system for the ABT Booster Game that allows
 
 ### Technical Components
 
-1. **Pages and Components**
+1. **Pages and Components (V2 System)**
    - `src/app/game/arena/page.tsx`: Main arena navigation page
    - `src/app/game/arena/lobby/page.tsx`: Challenge listing and creation page
-   - `src/app/game/arena/battle/[id]/page.tsx`: Battle results viewing page
-   - `src/components/game/battle/CreateChallenge.tsx`: Challenge creation interface
-   - `src/components/game/battle/ChallengeList.tsx`: Available challenges display
-   - `src/components/game/battle/CardSelection.tsx`: Card selection interface
-   - `src/components/game/battle/BattleResults.tsx`: Results display component
-   - `src/components/game/battle/Notifications.tsx`: Battle notification component
+   - `src/app/game/arena/battle-v2/[id]/page.tsx`: Battle results viewing page (V2)
+   - `src/components/game/battle-v2/CreateChallenge.tsx`: Challenge creation interface
+   - `src/components/game/battle-v2/ChallengeList.tsx`: Available challenges display
+   - `src/components/game/battle-v2/CardSelection.tsx`: Card selection interface
+   - `src/components/game/battle-v2/BattleResults.tsx`: Results display component
+   - `src/components/game/battle-v2/Notifications.tsx`: Battle notification component
    - `src/components/ui/ScrollArea.tsx`: Custom scroll area for card lists
+
+2. **Hooks and Logic (V2 System)**
+   - `src/hooks/battle-v2/useBattleV2.ts`: Main battle hook
+   - `src/hooks/battle-v2/useBattleRealtime.ts`: Real-time updates
+   - `src/hooks/battle-v2/useCardSelection.ts`: Card selection logic
+   - `src/lib/battle-v2/battleResolution.ts`: Battle resolution logic
+   - `src/lib/battle-v2/cardTransfer.ts`: Card ownership transfer
+
+3. **Type Definitions (Consolidated)**
+   - `src/types/battle-consolidated.ts`: Single source of truth for all battle types
+   - Includes both active V2 types and legacy types for backward compatibility
+   - Provides clear migration path from legacy implementations
 
 2. **Navigation Integration**
    - Battle Arena section in main navigation
@@ -543,4 +557,5 @@ The integration with the existing unlimited card pack mechanics provides players
 
 ---
 
-*Last Updated: July 10, 2025*
+*Last Updated: July 25, 2025*  
+*Code Cleanup Completed: Battle V1 system removed, V2 system consolidated*

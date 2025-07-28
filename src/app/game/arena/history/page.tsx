@@ -1,10 +1,11 @@
 'use client';
 
+import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
-import Link from 'next/link';
 
 export default function BattleHistoryPage() {
   const { toast } = useToast();

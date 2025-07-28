@@ -1,13 +1,14 @@
 'use client';
 
+import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
+
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { supabase } from '@/lib/supabase/client';
-import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
 
 interface ActiveTimer {
   id: string;

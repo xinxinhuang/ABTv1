@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { BattleInstance } from '@/types/battle';
-import { Card } from '@/types/game';
 import { User } from '@supabase/supabase-js';
+
+import { Card } from '@/types/game';
 
 interface BattleCompletedPhaseProps {
   battle: BattleInstance;

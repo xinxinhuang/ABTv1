@@ -4,11 +4,13 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+
+import { BATTLE_CONFIG } from '@/lib/battle-v2/types';
+import { BattleRealtimeEvent } from '@/types/battle-consolidated';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
-import { BattleRealtimeEvent } from '@/types/battle-v2';
+
 import { UseBattleRealtimeReturn } from './types';
-import { BATTLE_CONFIG } from '@/lib/battle-v2/types';
 
 /**
  * Custom hook for managing battle real-time subscriptions

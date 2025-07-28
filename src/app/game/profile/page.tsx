@@ -1,8 +1,9 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { redirect } from 'next/navigation';
-import { LogoutButton } from '@/components/auth/LogoutButton';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { LogoutButton } from '@/components/auth/LogoutButton';
 
 export default async function ProfilePage() {
   const supabase = createServerComponentClient({ cookies });

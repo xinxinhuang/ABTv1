@@ -7,8 +7,9 @@
 
 import React, { useState } from 'react';
 import { ChevronUp, ChevronDown, Bug, Wifi, WifiOff, RefreshCw, Eye } from 'lucide-react';
-import { BattleInstance, HumanoidCard, BattleRealtimeEvent } from '@/types/battle-v2';
 import { User } from '@supabase/supabase-js';
+
+import { BattleInstance, HumanoidCard, BattleRealtimeEvent } from '@/types/battle-consolidated';
 import { getBattlePhaseDisplayName } from '@/lib/battle-v2/utils';
 
 interface BattleDebugPanelProps {

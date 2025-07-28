@@ -2,8 +2,10 @@
 
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { BattleInstance, BattleSelection } from '@/types/battle';
 import { User } from '@supabase/supabase-js';
+
+import { BattleSelection } from '@/types/battle-consolidated';
+
 import { CardSelectionGrid } from '../CardSelectionGrid';
 
 interface CardSelectionPhaseProps {

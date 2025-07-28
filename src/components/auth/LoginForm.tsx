@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
-import Link from 'next/link';
 import '@/styles/input-override.css';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { supabase } from '@/lib/supabase/client';
 
 type LoginFormProps = {
   registered?: string | null;

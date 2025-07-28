@@ -1,10 +1,11 @@
 'use client';
 
-import { CardDisplay } from '../CardDisplay';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Button } from '@/components/ui/Button';
 import { useState } from 'react';
-import { Card as PlayerCard } from '@/types/game';
+
+import { Button } from '@/components/ui/Button';
+import { ScrollArea } from '@/components/ui/ScrollArea';
+
+import { CardDisplay } from '../CardDisplay';
 
 // Custom card type for battle UI
 export type BattleCard = {

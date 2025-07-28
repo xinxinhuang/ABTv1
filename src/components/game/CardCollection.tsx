@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '@/types/game';
+
 import { CollectionCard } from './CollectionCard';
 
 interface CardCollectionProps {

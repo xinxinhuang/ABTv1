@@ -1,5 +1,5 @@
-import { PlayerInventory } from '@/types/game';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { PlayerInventory } from '@/types/game';
 
 interface InventoryDisplayProps {
   inventory: PlayerInventory | null;

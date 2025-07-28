@@ -7,13 +7,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sword, Shield, Brain, Clock, Zap } from 'lucide-react';
-import { BattleInstance, HumanoidCard } from '@/types/battle-v2';
 import { User } from '@supabase/supabase-js';
-import { CardDisplay } from '../../CardDisplay';
-import { useCountdownTimerWithWarnings } from '@/hooks/battle-v2/useCountdownTimer';
-import { useBattleActions } from '@/hooks/battle-v2/useBattleActions';
-import { calculateBattleResult, formatTimeRemaining, getCardRarityColor } from '@/lib/battle-v2/utils';
+
 import { BATTLE_CONFIG } from '@/lib/battle-v2/types';
+import { BattleInstance, HumanoidCard } from '@/types/battle-consolidated';
+import { calculateBattleResult, formatTimeRemaining, getCardRarityColor } from '@/lib/battle-v2/utils';
+import { useBattleActions } from '@/hooks/battle-v2/useBattleActions';
+import { useCountdownTimerWithWarnings } from '@/hooks/battle-v2/useCountdownTimer';
+
+import { CardDisplay } from '@/components/game/CardDisplay';
 
 interface CardsRevealedPhaseProps {
   battle: BattleInstance;

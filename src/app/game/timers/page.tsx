@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { ActiveTimersDisplay } from "@/components/game/ActiveTimersDisplay";
-import { PackOpener } from "@/components/game/PackOpener";
-import { Card } from "@/types/game";
 import { toast } from "sonner";
+import { useEffect, useState, useCallback } from "react";
+
+import { ActiveTimersDisplay } from "@/components/game/ActiveTimersDisplay";
+import { Card } from "@/types/game";
+import { PackOpener } from "@/components/game/PackOpener";
 
 interface ActiveTimer {
   id: string;

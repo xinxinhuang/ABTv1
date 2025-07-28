@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useUser } from '../../../hooks/useUser';
-import { BattleInstance, BattleSelection, BattleCard } from '@/types/battle';
-import { Card } from '@/types/game';
-import { CardDisplay } from '../CardDisplay';
-import { Button } from '@/components/ui/Button';
 import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/types/game';
+import { createClient } from '@/lib/supabase/client';
+
+import { CardDisplay } from '../CardDisplay';
+import { useUser } from '@/hooks/useUser';
 
 interface BattleGridProps {
   battle: BattleInstance;

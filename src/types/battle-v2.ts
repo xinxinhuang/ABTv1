@@ -1,10 +1,10 @@
 /**
- * Battle Arena V2 Types
+ * @deprecated This file is deprecated. Use @/types/battle-consolidated instead.
+ * Battle Arena V2 Types - kept for backward compatibility during migration
  * TypeScript interfaces for humanoid-only battle system
  */
 
 import { Card } from './game';
-import { User } from '@supabase/supabase-js';
 
 /**
  * Humanoid card interface - extends Card with humanoid-specific constraints

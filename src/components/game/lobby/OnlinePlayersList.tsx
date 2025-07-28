@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useUser } from '@/hooks/useUser';
-import { ChallengeButton } from './ChallengeButton';
 import { RefreshCw, Users } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+
 import { Button } from '@/components/ui/Button';
+import { createClient } from '@/lib/supabase/client';
 import { onlinePlayersService, OnlinePlayer } from '@/lib/services/onlinePlayersService';
+import { useUser } from '@/hooks/useUser';
+
+import { ChallengeButton } from './ChallengeButton';
 
 export function OnlinePlayersList() {
   const supabase = createClient();

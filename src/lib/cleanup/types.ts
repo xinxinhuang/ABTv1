@@ -1,4 +1,3 @@
-/**
  * Type definitions for the code cleanup analysis system
  */
 

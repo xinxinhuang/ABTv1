@@ -5,13 +5,15 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Loader2, Clock, User, Users } from 'lucide-react';
-import { BattleInstance } from '@/types/battle-v2';
 import { User as SupabaseUser } from '@supabase/supabase-js';
-import { HumanoidCardGrid } from '../HumanoidCardGrid';
-import { useHumanoidCards } from '@/hooks/battle-v2/useHumanoidCards';
+
+import { BattleInstance } from '@/types/battle-consolidated';
 import { useBattleActions } from '@/hooks/battle-v2/useBattleActions';
+import { useHumanoidCards } from '@/hooks/battle-v2/useHumanoidCards';
+
+import { HumanoidCardGrid } from '../HumanoidCardGrid';
 
 interface CardSelectionPhaseProps {
   battle: BattleInstance;

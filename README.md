@@ -6,7 +6,7 @@ A Next.js application featuring card collection, booster packs, and an online ba
 
 - **Card Collection**: Collect humanoid and weapon cards
 - **Booster Packs**: Open time-gated booster packs to get new cards
-- **Battle Arena**: Challenge other players in online battles
+- **Battle Arena V2**: Challenge other players in real-time battles with humanoid cards
 - **Card Staking**: Risk your cards in battles to win opponents' cards
 
 ## Getting Started
@@ -98,3 +98,29 @@ vercel
 - Supabase (Auth, Database, Real-time)
 - TailwindCSS
 - Framer Motion for animations
+
+## Code Organization
+
+The application follows a clean, consolidated architecture:
+
+### Battle System
+- **Current System**: Battle V2 (`/game/arena/battle-v2/[battleId]`)
+- **Components**: `src/components/game/battle-v2/`
+- **Hooks**: `src/hooks/battle-v2/`
+- **Logic**: `src/lib/battle-v2/`
+- **Types**: `src/types/battle-consolidated.ts` (single source of truth)
+
+### Import Standards
+All files follow a 4-tier import organization:
+1. Type-only imports
+2. External library imports (React, Next.js, etc.)
+3. Internal imports (using `@/` alias)
+4. Relative imports (`./filename`)
+
+### Development Guidelines
+- Use absolute paths with `@/` alias for internal imports
+- Import types from `src/types/battle-consolidated.ts`
+- Follow consistent component and hook naming conventions
+- Maintain clean, unused-import-free codebase
+
+For detailed migration information, see `docs/migration-guide.md`.

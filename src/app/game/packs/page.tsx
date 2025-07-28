@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { PackOpener } from '@/components/game/PackOpener';
-import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
-import { Card } from '@/types/game';
-import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { Card as CardUI, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Slider } from '@/components/ui/slider';
+import { useState, useEffect, useCallback } from 'react';
+
 import TimeFeedbackSlider from '@/components/game/TimeFeedbackSlider';
+import { ActiveTimersDisplay } from '@/components/game/ActiveTimersDisplay';
+import { Button } from '@/components/ui/Button';
+import { Card as CardUI, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card } from '@/types/game';
+import { PackOpener } from '@/components/game/PackOpener';
+import { supabase } from '@/lib/supabase/client';
 
 interface PackInfo {
   type: 'humanoid' | 'weapon';

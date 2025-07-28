@@ -1,8 +1,9 @@
 'use client';
 
-import { LoginForm } from '@/components/auth/LoginForm';
-import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+import { LoginForm } from '@/components/auth/LoginForm';
 
 function LoginContent() {
   const searchParams = useSearchParams();

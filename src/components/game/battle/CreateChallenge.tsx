@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { CardSelector, BattleCard } from './CardSelector';
-import { supabase } from '@/lib/supabase/client';
-import { Card } from '@/types/game';
-import { Button } from '@/components/ui/Button';
-import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/types/game';
+import { supabase } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+
+import { CardSelector, BattleCard } from './CardSelector';
 
 interface CreateChallengeProps {
   opponentId: string;

@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
-import { BattleNotification } from '@/types/game';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Bell, Check, Trash } from 'lucide-react';
-import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
+
+import { BattleNotification } from '@/types/game';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { supabase } from '@/lib/supabase/client';
 
 interface NotificationsPanelProps {
   onNotificationClick?: (battleId: string) => void;

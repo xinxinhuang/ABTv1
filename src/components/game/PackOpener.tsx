@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card } from '@/types/game';
-import { apiUrl } from '@/lib/utils/api-helpers';
-import { CardDisplay } from './CardDisplay';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase/client';
+import { useCallback, useEffect, useState } from 'react';
+
+import { Card } from '@/types/game';
 import { SparklesText } from '@/components/ui/sparkles-text';
+import { apiUrl } from '@/lib/utils/api-helpers';
+import { supabase } from '@/lib/supabase/client';
+
+import { CardDisplay } from './CardDisplay';
 
 interface PackOpenerProps {
   timerId: string;

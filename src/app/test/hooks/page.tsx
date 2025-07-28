@@ -1,18 +1,17 @@
 'use client';
 
-import React from 'react';
-import { useCountdown } from '@/hooks/battle';
+import { useCountdownTimer } from '@/hooks/battle-v2/useCountdownTimer';
 
 // Simple manual test page for hooks
 export default function HooksTestPage() {
-    const { seconds, isActive, start, stop, reset } = useCountdown();
+    const { seconds, isActive, start, stop, reset } = useCountdownTimer();
 
     return (
         <div className="p-8 space-y-4">
             <h1 className="text-2xl font-bold">Hook Testing Page</h1>
 
             <div className="bg-gray-100 p-4 rounded">
-                <h2 className="text-lg font-semibold mb-2">useCountdown Hook Test</h2>
+                <h2 className="text-lg font-semibold mb-2">useCountdownTimer Hook Test</h2>
                 <div className="space-y-2">
                     <p>Seconds: <span className="font-bold">{seconds}</span></p>
                     <p>Active: <span className="font-bold">{isActive ? 'Yes' : 'No'}</span></p>

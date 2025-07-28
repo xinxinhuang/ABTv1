@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useUser } from '../../../hooks/useUser';
-import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
+
+import { Button } from '@/components/ui/Button';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+
+import { useUser } from '@/hooks/useUser';
 
 interface ChallengePayload {
   lobby_id: string; // Maintained for backward compatibility

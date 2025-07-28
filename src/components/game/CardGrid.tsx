@@ -1,6 +1,5 @@
 'use client';
 
-import { Card as GameCard } from '@/types/game';
 import { CardDisplay } from '@/components/game/CardDisplay';
 
 interface CardGridProps {

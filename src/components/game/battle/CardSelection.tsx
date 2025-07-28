@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useUser } from '../../../hooks/useUser';
-import { Card, CardAttributes } from '@/types/game';
-import { BattleInstance, BattleSelection, BattleCard } from '@/types/battle';
-import { CardDisplay } from '../CardDisplay';
-import { Button } from '@/components/ui/Button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { Card, CardAttributes } from '@/types/game';
+import { ScrollArea } from '@/components/ui/ScrollArea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { createClient } from '@/lib/supabase/client';
+
+import { CardDisplay } from '../CardDisplay';
+import { useUser } from '@/hooks/useUser';
 
 const BATTLE_DECK_SIZE = 1; // We're only selecting one card per player now
 

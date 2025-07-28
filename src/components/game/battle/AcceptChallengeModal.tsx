@@ -1,11 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { CardSelector, BattleCard } from './CardSelector';
-import { supabase } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/Button';
-import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
 import { 
   Dialog, 
   DialogContent, 
@@ -13,6 +10,11 @@ import {
   DialogTitle, 
   DialogDescription 
 } from '@/components/ui/Dialog';
+import { Button } from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+
+import { CardSelector, BattleCard } from './CardSelector';
 
 interface AcceptChallengeModalProps {
   challenge: any;

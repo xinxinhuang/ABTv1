@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileAnalysis, CleanupConfig } from './types';
+
 import { DependencyTracker } from './dependencyTracker';
+import { FileAnalysis, CleanupConfig } from './types';
 
 /**
  * Analyzes files to determine their usage and removal safety

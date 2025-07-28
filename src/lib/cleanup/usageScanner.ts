@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+
 import { UsagePattern } from './types';
 
 /**
@@ -43,13 +44,13 @@ export class UsageScanner {
    */
   async scanDirectory(dirPath: string, excludePatterns: string[] = []): Promise<Map<string, string[]>> {
     const results = new Map<string, string[]>();
-    
+
     try {
       const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
-        
+
         if (this.shouldExclude(fullPath, excludePatterns)) {
           continue;
         }
@@ -115,7 +116,7 @@ export class UsageScanner {
     if (reference.startsWith('./') || reference.startsWith('../')) {
       return reference.includes(path.basename(targetFile, path.extname(targetFile)));
     }
-    
+
     // Handle absolute imports
     return reference.includes(targetFile) || reference.endsWith(path.basename(targetFile, path.extname(targetFile)));
   }
