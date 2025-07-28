@@ -71,12 +71,18 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
       console.log('🔄 Battle fetched with status:', battleInstance.status);
       setBattle(battleInstance);
       
-      // Fetch cards if battle is in progress or completed
-      if (['cards_revealed', 'in_progress', 'completed'].includes(battleInstance.status)) {
+      // Fetch cards for active battles and beyond to check selection status
+      const shouldFetchCards = ['active', 'cards_revealed', 'in_progress', 'completed'].includes(battleInstance.status);
+      console.log('🔍 Should fetch cards?', shouldFetchCards, 'for status:', battleInstance.status);
+      
+      if (shouldFetchCards) {
         console.log('🃏 Fetching battle cards for status:', battleInstance.status);
         await fetchBattleCards(battleInstance);
       } else {
         console.log('⏳ Not fetching cards yet, battle status is:', battleInstance.status);
+        // Reset selection states for non-active battles
+        setPlayerHasSelected(false);
+        setOpponentHasSelected(false);
       }
 
     } catch (err) {
@@ -125,6 +131,20 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
       
       setPlayerCard(userCard);
       setOpponentCard(opponentCard);
+
+      // Update selection states based on whether cards exist
+      const playerSelected = !!userCardData;
+      const opponentSelected = !!opponentCardData;
+      
+      console.log('🃏 Card selection states from database:', {
+        playerSelected,
+        opponentSelected,
+        userCardData: !!userCardData,
+        opponentCardData: !!opponentCardData
+      });
+      
+      setPlayerHasSelected(playerSelected);
+      setOpponentHasSelected(opponentSelected);
 
     } catch (err) {
       console.error('Error fetching battle cards:', err);

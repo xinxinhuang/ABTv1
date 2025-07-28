@@ -87,7 +87,10 @@ export default function BattlePage({ params }: BattlePageProps) {
   const handleCardSelected = (cardId: string) => {
     console.log('Card selected:', cardId);
     setLastUpdateTime(new Date().toLocaleTimeString());
-    // The useBattleState hook handles the selection status update
+    
+    // Immediately update the player selection status for better UX
+    setPlayerHasSelected(true);
+    console.log('✅ Player selection status updated to true');
   };
 
   // Handle battle resolution triggered
@@ -124,8 +127,21 @@ export default function BattlePage({ params }: BattlePageProps) {
 
   // Sync local state with useBattleState hook
   useEffect(() => {
-    setPlayerHasSelected(statePlayerHasSelected);
+    console.log('🔄 Syncing selection states:', {
+      statePlayerHasSelected,
+      stateOpponentHasSelected,
+      currentPlayerHasSelected: playerHasSelected,
+      currentOpponentHasSelected: opponentHasSelected
+    });
+    
+    // Always sync opponent state since we don't have optimistic updates for opponent
     setOpponentHasSelected(stateOpponentHasSelected);
+    
+    // For player state, only update if we don't have an optimistic update
+    // or if the database state is more authoritative (true when we had false)
+    if (!playerHasSelected || statePlayerHasSelected) {
+      setPlayerHasSelected(statePlayerHasSelected);
+    }
   }, [statePlayerHasSelected, stateOpponentHasSelected]);
 
   // Loading state

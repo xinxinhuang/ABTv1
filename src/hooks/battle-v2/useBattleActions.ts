@@ -46,37 +46,55 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
             console.log('⚠️ Skipping client-side duplicate check due to potential schema issues');
 
             // Call the select-card-v2 edge function with correct parameters
+            // Try both old and new parameter names for compatibility
+            const requestBody = {
+                battle_id: battleId,
+                player_id: user.id, // New parameter name
+                user_id: user.id, // Old parameter name (fallback)
+                card_id: cardId, // New parameter name
+                selected_card_id: cardId // Old parameter name (fallback)
+            };
+            
+            console.log('📤 Sending request to select-card-v2 with body:', requestBody);
+            
             const response = await supabase.functions.invoke('select-card-v2', {
-                body: {
-                    battle_id: battleId,
-                    user_id: user.id, // Current function uses user_id
-                    selected_card_id: cardId // Current function uses selected_card_id
-                }
+                body: requestBody
             });
 
-            console.log('Select card response:', response);
+            console.log('📥 Select card response:', response);
 
             // Check for function invocation errors
             if (response.error) {
                 console.error('🚨 Function invocation error details:', response.error);
                 console.error('🚨 Full response:', response);
+                console.error('🚨 Response data:', response.data);
                 
-                // Try to get detailed error message from the response
+                // Try to extract the actual error from the 400 response
                 let errorMessage = 'Failed to invoke select-card function';
                 
-                if (response.error.message) {
+                // First try to get error from response.data (this is where 400 errors usually are)
+                if (response.data && typeof response.data === 'object') {
+                    if (response.data.error) {
+                        errorMessage = response.data.error;
+                    } else if (response.data.message) {
+                        errorMessage = response.data.message;
+                    }
+                }
+                // Then try response.error.message
+                else if (response.error.message) {
                     errorMessage = response.error.message;
-                } else if (response.error.context) {
-                    // Sometimes the error details are in context
+                } 
+                // Finally try response.error.context
+                else if (response.error.context) {
                     try {
                         const errorData = JSON.parse(response.error.context);
                         errorMessage = errorData.error || errorData.message || errorMessage;
                     } catch (e) {
-                        // If parsing fails, use the original message
                         errorMessage = response.error.context || errorMessage;
                     }
                 }
                 
+                console.error('🚨 Final error message:', errorMessage);
                 throw new Error(errorMessage);
             }
 
