@@ -361,7 +361,7 @@ export default function PacksPage() {
               </CardHeader>
               <CardContent>
                 <ActiveTimersDisplay 
-                  timers={timers.filter(t => t.status === 'active')} 
+                  timers={timers.filter(t => t.is_active)} 
                   onOpenPack={(timerId, packType) => setOpeningPack({ timerId, packType })}
                 />
               </CardContent>

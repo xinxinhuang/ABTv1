@@ -1,0 +1,65 @@
+### Test GET endpoint - Get active timers and queue information
+GET http://localhost:3000/api/timers
+Content-Type: application/json
+
+### Test with authorization header (if needed)
+GET http://localhost:3000/api/timers
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Expected response format:
+{
+  "success": true,
+  "data": {
+    "activeTimers": [
+      {
+        "id": "uuid",
+        "pack_type": "humanoid|weapon",
+        "start_time": "2024-...",
+        "target_delay_hours": 4,
+        "queue_position": 0,
+        "is_active": true,
+        "is_completed": false,
+        "is_saved": false,
+        "ends_at": "2024-...",
+        "remaining_hours": 3,
+        "remaining_minutes": 45,
+        "is_ready": false
+      }
+    ],
+    "queuedTimers": [
+      {
+        "id": "uuid",
+        "pack_type": "humanoid|weapon",
+        "start_time": "2024-...",
+        "target_delay_hours": 4,
+        "queue_position": 1,
+        "is_active": false,
+        "is_completed": false,
+        "is_saved": false,
+        "estimated_start_time": "2024-..."
+      }
+    ],
+    "categoryStats": {
+      "humanoid": {
+        "activeCount": 1,
+        "queueCount": 2,
+        "totalCount": 3,
+        "activeTimer": {...},
+        "queuedTimers": [...]
+      },
+      "weapon": {
+        "activeCount": 0,
+        "queueCount": 1,
+        "totalCount": 1,
+        "activeTimer": null,
+        "queuedTimers": [...]
+      }
+    },
+    "summary": {
+      "totalActive": 1,
+      "totalQueued": 3,
+      "totalTimers": 4
+    }
+  }
+}

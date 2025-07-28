@@ -1,0 +1,59 @@
+### Test Pack Queue System
+
+### 1. Test Single Active Timer Limit
+POST http://localhost:3000/api/timers
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "packType": "humanoid",
+  "delayHours": 4
+}
+
+### 2. Test Queue Limit (Should fail after 1 active)
+POST http://localhost:3000/api/timers
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "packType": "humanoid",
+  "delayHours": 4
+}
+
+### 3. Test Queue System (Add to queue)
+POST http://localhost:3000/api/timers
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "packType": "weapon",
+  "delayHours": 4
+}
+
+### 4. Get Current Timer Status
+GET http://localhost:3000/api/timers
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### 5. Test Timer Completion (Open)
+POST http://localhost:3000/api/timers/complete
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "timerId": "YOUR_TIMER_ID",
+  "action": "open"
+}
+
+### 6. Test Timer Completion (Save)
+POST http://localhost:3000/api/timers/complete
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "timerId": "YOUR_TIMER_ID",
+  "action": "save"
+}
+
+### 7. Test Queue Activation (Next timer should become active)
+GET http://localhost:3000/api/timers
+Authorization: Bearer YOUR_TOKEN_HERE

@@ -25,6 +25,16 @@ interface ActiveTimer {
   start_time: string;
   target_delay_hours: number;
   status: string;
+  queue_position: number;
+  is_active: boolean;
+  is_completed: boolean;
+  is_saved: boolean;
+}
+
+interface PackStatus {
+  activeCount: number;
+  queueCount: number;
+  savedCount: number;
 }
 
 export default function PacksPage() {
@@ -33,6 +43,7 @@ export default function PacksPage() {
   const [_timerId, _setTimerId] = useState('');
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({});
   const [activeTimers, setActiveTimers] = useState<ActiveTimer[]>([]);
+  const [packStatus, setPackStatus] = useState<{[key: string]: PackStatus}>({});
   const [timerDurations, setTimerDurations] = useState<{[key: string]: number}>({ 
     'humanoid': 4,
     'weapon': 4 
@@ -48,15 +59,33 @@ export default function PacksPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      // Fetch active timers
+      // Fetch active timers and queue status
       const { data: timersData } = await supabase
         .from('active_timers')
         .select('*')
         .eq('player_id', user.id)
-        .eq('status', 'active');
+        .eq('is_completed', false)
+        .order('queue_position', { ascending: true });
         
       if (timersData) {
         setActiveTimers(timersData as ActiveTimer[]);
+        
+        // Calculate pack status per category
+        const status = {
+          humanoid: { activeCount: 0, queueCount: 0, savedCount: 0 },
+          weapon: { activeCount: 0, queueCount: 0, savedCount: 0 }
+        };
+        
+        timersData.forEach(timer => {
+          const packType = timer.pack_type as 'humanoid' | 'weapon';
+          if (timer.is_active) {
+            status[packType].activeCount++;
+          } else {
+            status[packType].queueCount++;
+          }
+        });
+        
+        setPackStatus(status);
       }
     };
     
@@ -76,10 +105,28 @@ export default function PacksPage() {
             .from('active_timers')
             .select('*')
             .eq('player_id', user.id)
-            .eq('status', 'active');
+            .eq('is_completed', false)
+            .order('queue_position', { ascending: true });
             
           if (timersData) {
             setActiveTimers(timersData as ActiveTimer[]);
+            
+            // Recalculate pack status
+            const status = {
+              humanoid: { activeCount: 0, queueCount: 0, savedCount: 0 },
+              weapon: { activeCount: 0, queueCount: 0, savedCount: 0 }
+            };
+            
+            timersData.forEach(timer => {
+              const packType = timer.pack_type as 'humanoid' | 'weapon';
+              if (timer.is_active) {
+                status[packType].activeCount++;
+              } else {
+                status[packType].queueCount++;
+              }
+            });
+            
+            setPackStatus(status);
           }
         }
       )
@@ -134,7 +181,20 @@ export default function PacksPage() {
       
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Failed to start timer');
+        
+        // Enhanced error messages for better UX
+        if (error.error?.includes('active timer already exists')) {
+          const status = packStatus[pack.type] || { activeCount: 0, queueCount: 0 };
+          const nextPosition = status.queueCount + 1;
+          toast.error(`Active timer running - ${pack.name} will queue at position ${nextPosition}/5`);
+          return;
+        } else if (error.error?.includes('Maximum queue limit')) {
+          const status = packStatus[pack.type] || { activeCount: 0, queueCount: 0 };
+          toast.error(`Queue full! You have ${status.queueCount}/5 ${pack.type} boosters queued`);
+          return;
+        } else {
+          throw new Error(error.error || 'Failed to start timer');
+        }
       }
       
       // Get the timer ID from the response
@@ -145,7 +205,10 @@ export default function PacksPage() {
       
       // No need to update inventory - unlimited packs
       
-      toast.success(`${pack.name} timer started! It will be ready in ${timerDurations[pack.type]} hours.`);
+      const message = result.queuePosition === 0 
+        ? `${pack.name} timer started! Ready in ${timerDurations[pack.type]} hours.`
+        : `${pack.name} queued at position ${result.queuePosition}/5`;
+      toast.success(message);
       
       // Refresh the timers list
       const { data: { user } } = await supabase.auth.getUser();
@@ -168,9 +231,71 @@ export default function PacksPage() {
     }
   };
   
-  // Handle timer completion (when a pack is opened)
-  const handleTimerComplete = (_timerId: string) => {
-    // No need to refresh inventory - unlimited packs
+  // Handle timer completion with open/save options
+  const handleTimerComplete = async (timerId: string, action: 'open' | 'save') => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('You must be logged in');
+        return;
+      }
+
+      const response = await fetch('/api/timers/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ timerId, action })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to complete timer');
+      }
+
+      toast.success(action === 'open' ? 'Pack opened!' : 'Pack saved for later');
+      
+      // Refresh the timers list
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: timersData } = await supabase
+          .from('active_timers')
+          .select('*')
+          .eq('player_id', user.id)
+          .eq('is_completed', false)
+          .order('queue_position', { ascending: true });
+          
+        if (timersData) {
+          setActiveTimers(timersData as ActiveTimer[]);
+          
+          // Recalculate pack status
+          const status = {
+            humanoid: { activeCount: 0, queueCount: 0, savedCount: 0 },
+            weapon: { activeCount: 0, queueCount: 0, savedCount: 0 }
+          };
+          
+          timersData.forEach(timer => {
+            const packType = timer.pack_type as 'humanoid' | 'weapon';
+            if (timer.is_active) {
+              status[packType].activeCount++;
+            } else {
+              status[packType].queueCount++;
+            }
+          });
+          
+          setPackStatus(status);
+        }
+      }
+      
+      if (action === 'open') {
+        setIsOpeningPack(true);
+        _setTimerId(timerId);
+      }
+    } catch (error) {
+      console.error('Error completing timer:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to complete timer');
+    }
   };
   
   const handlePackComplete = (cards: Card[]) => {
@@ -207,7 +332,10 @@ export default function PacksPage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {packs.map(pack => {
-                // No need for pack counts with unlimited packs
+                const status = packStatus[pack.type] || { activeCount: 0, queueCount: 0, savedCount: 0 };
+                const isActive = status.activeCount > 0;
+                const isQueueFull = status.activeCount + status.queueCount >= 5;
+                const canStart = !isActive && !isQueueFull;
                 
                 return (
                   <div 
@@ -237,16 +365,41 @@ export default function PacksPage() {
                       </div>
                     </div>
                     
+                    <div className="text-center mb-4">
+                      <div className="text-sm text-gray-600">
+                        {isActive ? (
+                          <span className="text-yellow-600 font-semibold">⏳ Active timer running</span>
+                        ) : status.queueCount > 0 ? (
+                          <span className="text-blue-600 font-semibold">📋 {status.queueCount}/5 in queue</span>
+                        ) : (
+                          <span className="text-green-600 font-semibold">✅ Ready to start</span>
+                        )}
+                      </div>
+                    </div>
+                    
                     <div className="flex items-center justify-between mt-4">
-                      <p className="text-sm text-gray-600">
-                        Unlimited packs available
-                      </p>
+                      <div className="text-sm text-gray-600">
+                        {status.activeCount > 0 && (
+                          <span className="block">Active: 1/1</span>
+                        )}
+                        {status.queueCount > 0 && (
+                          <span className="block">Queued: {status.queueCount}/5</span>
+                        )}
+                      </div>
                       <Button 
                         onClick={() => handleStartTimer(pack)} 
-                        disabled={isLoading[pack.type]}
-                        className="ml-auto bg-gray-700/80 hover:bg-gray-700 text-white border-gray-700/50"
+                        disabled={!canStart || isLoading[pack.type]}
+                        className={`ml-auto ${
+                          canStart 
+                            ? 'bg-gray-700/80 hover:bg-gray-700 text-white border-gray-700/50' 
+                            : isActive 
+                            ? 'bg-yellow-600 text-white cursor-not-allowed'
+                            : 'bg-gray-400 cursor-not-allowed text-gray-600'
+                        }`}
                       >
-                        {isLoading[pack.type] ? 'Starting...' : 'Start Timer'}
+                        {isLoading[pack.type] ? 'Starting...' : 
+                         isActive ? `Active (${status.queueCount}/5)` : 
+                         isQueueFull ? 'Queue Full' : `Start Timer ${status.queueCount > 0 ? `(${status.queueCount}/5)` : ''}`}
                       </Button>
                     </div>
                   </div>

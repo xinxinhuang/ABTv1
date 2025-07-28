@@ -23,9 +23,12 @@ interface ActiveTimersDisplayProps {
 export function ActiveTimersDisplay({ timers: initialTimers, onTimerComplete, onOpenPack, className = '' }: ActiveTimersDisplayProps) {
   const [timers, setTimers] = useState<ActiveTimer[]>(initialTimers);
   
+  // Filter to show only active timers
+  const activeTimers = initialTimers.filter(timer => timer.is_active);
+  
   // Update timers when props change
   useEffect(() => {
-    setTimers(initialTimers);
+    setTimers(activeTimers);
   }, [initialTimers]);
   
   // Function to calculate remaining seconds
@@ -69,16 +72,17 @@ export function ActiveTimersDisplay({ timers: initialTimers, onTimerComplete, on
   
   if (timers.length === 0) {
     return (
-      <div className="text-center py-8">
+      <div className={`text-center py-8 ${className}`}>
         <div className="text-4xl mb-4">⏱️</div>
         <div className="text-gray-400">No active timers</div>
+        <div className="text-sm text-gray-500 mt-2">Check your queue status below</div>
       </div>
     );
   }
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {timers.map((timer, index) => {
+      {activeTimers.map((timer, index) => {
         const remainingSeconds = calculateRemainingSeconds(
           timer.start_time,
           timer.target_delay_hours
@@ -129,16 +133,14 @@ export function ActiveTimersDisplay({ timers: initialTimers, onTimerComplete, on
               {ready && (
                 <div className="flex items-center gap-2">
                   <div className="text-green-300 font-semibold">
-                    Ready to open!
+                    Ready!
                   </div>
-                  {onOpenPack && (
-                    <button
-                      onClick={() => onOpenPack(timer.id, timer.pack_type)}
-                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm font-medium"
-                    >
-                      Open
-                    </button>
-                  )}
+                  <button
+                    onClick={() => onOpenPack?.(timer.id, timer.pack_type)}
+                    className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm font-medium"
+                  >
+                    Open
+                  </button>
                 </div>
               )}
             </div>
