@@ -38,7 +38,9 @@ export default function BattlePage({ params }: BattlePageProps) {
     opponentCard,
     loading: battleLoading,
     error: battleError,
-    refresh
+    refresh,
+    playerHasSelected: statePlayerHasSelected,
+    opponentHasSelected: stateOpponentHasSelected
   } = useBattleState(battleId);
 
   // Real-time subscriptions
@@ -55,11 +57,20 @@ export default function BattlePage({ params }: BattlePageProps) {
 
   // Handle battle updates from real-time
   function handleBattleUpdate(battleData: any) {
-    console.log('Real-time battle update:', battleData);
+    console.log('🔄 Real-time battle update:', battleData);
+    console.log('🔄 New battle status:', battleData.status);
     setLastUpdateTime(new Date().toLocaleTimeString());
     
-    // Refresh battle state to get latest data
-    refresh();
+    // If battle is completed, add a small delay before refresh to ensure all data is ready
+    if (battleData.status === 'completed') {
+      console.log('🏁 Battle completed! Refreshing in 2 seconds...');
+      setTimeout(() => {
+        refresh();
+      }, 2000);
+    } else {
+      // For other status changes, refresh immediately
+      refresh();
+    }
   }
 
   // Handle card updates from real-time
@@ -67,30 +78,16 @@ export default function BattlePage({ params }: BattlePageProps) {
     console.log('Real-time selection update:', selectionData);
     setLastUpdateTime(new Date().toLocaleTimeString());
     
-    // Update selection status based on battle_selections data
-    if (battle && user) {
-      const isChallenger = user.id === battle.challenger_id;
-      const newSelectionData = selectionData.new || selectionData;
-      
-      // Check player selection status
-      if (isChallenger) {
-        setPlayerHasSelected(!!newSelectionData.player1_card_id);
-        setOpponentHasSelected(!!newSelectionData.player2_card_id);
-      } else {
-        setPlayerHasSelected(!!newSelectionData.player2_card_id);
-        setOpponentHasSelected(!!newSelectionData.player1_card_id);
-      }
-    }
-    
-    // Refresh battle state to get latest cards
+    // The useBattleState hook handles selection status updates
+    // We just need to refresh to get the latest data
     refresh();
   }
 
   // Handle card selection
   const handleCardSelected = (cardId: string) => {
     console.log('Card selected:', cardId);
-    setPlayerHasSelected(true);
     setLastUpdateTime(new Date().toLocaleTimeString());
+    // The useBattleState hook handles the selection status update
   };
 
   // Handle battle resolution triggered
@@ -125,13 +122,11 @@ export default function BattlePage({ params }: BattlePageProps) {
     }
   }, [battleError, connectionError]);
 
-  // Update selection status based on battle state
+  // Sync local state with useBattleState hook
   useEffect(() => {
-    if (battle && user) {
-      // This would typically come from checking battle_cards table
-      // For now, we'll rely on real-time updates to set these states
-    }
-  }, [battle, user, playerCard, opponentCard]);
+    setPlayerHasSelected(statePlayerHasSelected);
+    setOpponentHasSelected(stateOpponentHasSelected);
+  }, [statePlayerHasSelected, stateOpponentHasSelected]);
 
   // Loading state
   if (userLoading || battleLoading) {

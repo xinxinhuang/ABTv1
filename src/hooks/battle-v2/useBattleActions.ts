@@ -38,23 +38,46 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
         setIsProcessing(true);
         setActionError(null);
 
-            try {
-      console.log('Selecting card:', { battleId, cardId, userId: user.id });
+        try {
+            console.log('Selecting card:', { battleId, cardId, userId: user.id });
 
-      // Call the select-card-v2 edge function with correct parameters
-      const response = await supabase.functions.invoke('select-card-v2', {
-        body: {
-          battle_id: battleId,
-          user_id: user.id, // Current function uses user_id
-          selected_card_id: cardId // Current function uses selected_card_id
-        }
-      });
+            // Skip client-side validation for now since there might be schema issues
+            // Let the edge function handle all validation
+            console.log('⚠️ Skipping client-side duplicate check due to potential schema issues');
 
-      console.log('Select card response:', response);
+            // Call the select-card-v2 edge function with correct parameters
+            const response = await supabase.functions.invoke('select-card-v2', {
+                body: {
+                    battle_id: battleId,
+                    user_id: user.id, // Current function uses user_id
+                    selected_card_id: cardId // Current function uses selected_card_id
+                }
+            });
+
+            console.log('Select card response:', response);
 
             // Check for function invocation errors
             if (response.error) {
-                throw new Error(response.error.message || 'Failed to invoke select-card function');
+                console.error('🚨 Function invocation error details:', response.error);
+                console.error('🚨 Full response:', response);
+                
+                // Try to get detailed error message from the response
+                let errorMessage = 'Failed to invoke select-card function';
+                
+                if (response.error.message) {
+                    errorMessage = response.error.message;
+                } else if (response.error.context) {
+                    // Sometimes the error details are in context
+                    try {
+                        const errorData = JSON.parse(response.error.context);
+                        errorMessage = errorData.error || errorData.message || errorMessage;
+                    } catch (e) {
+                        // If parsing fails, use the original message
+                        errorMessage = response.error.context || errorMessage;
+                    }
+                }
+                
+                throw new Error(errorMessage);
             }
 
             // Check for application errors in the response data
@@ -64,19 +87,19 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
 
                 // Handle specific error cases
                 switch (errorCode) {
-                    case 'Card already selected':
+                    case 'CARD_ALREADY_SELECTED':
                         errorMessage = 'You have already selected a card for this battle';
                         break;
-                    case 'Card not owned':
-                        errorMessage = 'You do not own this card';
+                    case 'HUMANOID_CARD_NOT_OWNED':
+                        errorMessage = 'You do not own this humanoid card';
                         break;
-                    case 'Invalid card type':
-                        errorMessage = 'Only humanoid cards can be used in battles';
+                    case 'INVALID_CARD_ATTRIBUTES':
+                        errorMessage = 'This card has invalid attributes';
                         break;
                     case 'Battle not found':
                         errorMessage = 'This battle no longer exists';
                         break;
-                    case 'Invalid battle status':
+                    case 'INVALID_BATTLE_STATUS':
                         errorMessage = 'Card selection is not allowed in the current battle state';
                         break;
                     default:
@@ -97,8 +120,37 @@ export function useBattleActions(battleId: string): UseBattleActionsReturn {
 
         } catch (err) {
             console.error('Error selecting card:', err);
-            setActionError(err instanceof Error ? err.message : 'Failed to select card');
-            throw err; // Re-throw so calling component can handle it
+            
+            let errorMessage = 'Failed to select card';
+            
+            // Try to extract more detailed error information
+            if (err instanceof Error) {
+                errorMessage = err.message;
+                
+                // If it's a generic edge function error, try to get more details
+                if (errorMessage.includes('Edge Function returned a non-2xx status code')) {
+                    // Try to get the actual error from the response
+                    try {
+                        // The error might contain additional context
+                        if (err.cause || (err as any).context) {
+                            const context = err.cause || (err as any).context;
+                            if (typeof context === 'string') {
+                                try {
+                                    const parsed = JSON.parse(context);
+                                    errorMessage = parsed.error || parsed.message || errorMessage;
+                                } catch (e) {
+                                    errorMessage = context;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Could not parse error context:', e);
+                    }
+                }
+            }
+            
+            setActionError(errorMessage);
+            throw new Error(errorMessage); // Re-throw with better message
         } finally {
             setIsProcessing(false);
         }

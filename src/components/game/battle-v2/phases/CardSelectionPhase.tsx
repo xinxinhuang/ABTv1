@@ -22,6 +22,7 @@ interface CardSelectionPhaseProps {
   opponentHasSelected?: boolean;
   lastUpdateTime?: string;
   onCardSelected?: (cardId: string) => void;
+  onRefresh?: () => void;
 }
 
 export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
@@ -30,7 +31,8 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
   playerHasSelected = false,
   opponentHasSelected = false,
   lastUpdateTime = '',
-  onCardSelected
+  onCardSelected,
+  onRefresh
 }) => {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,6 +57,12 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
   const handleConfirmSelection = async () => {
     if (!selectedCardId || isSubmitting || playerHasSelected) return;
 
+    // Double-check that player hasn't already selected
+    if (playerHasSelected) {
+      console.warn('Player has already selected a card, preventing duplicate selection');
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -70,6 +78,17 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
     } catch (error) {
       console.error('Failed to confirm card selection:', error);
       // Error is handled by the useBattleActions hook
+      
+      // If it's a "card already selected" error, we should refresh the battle state
+      if (error instanceof Error && error.message.includes('already selected')) {
+        console.log('Card already selected error detected, this might be a sync issue');
+        // Trigger a refresh to get the latest battle state
+        if (onRefresh) {
+          setTimeout(() => {
+            onRefresh();
+          }, 1000);
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -104,6 +123,36 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
 
   // Show waiting state if player has already selected
   if (playerHasSelected) {
+    // If both players have selected, show processing state
+    if (opponentHasSelected) {
+      return (
+        <div className="text-center p-12 space-y-6">
+          <div className="flex justify-center">
+            <Loader2 className="h-20 w-20 animate-spin text-blue-400" />
+          </div>
+          
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-blue-400">Processing Battle...</h2>
+            <p className="text-xl text-gray-300">Both players have submitted their cards!</p>
+            <p className="text-lg text-gray-400">Calculating battle results...</p>
+            
+            <div className="mt-6 p-4 bg-blue-900/20 border border-blue-500 rounded-lg">
+              <p className="text-blue-400 font-semibold">
+                ⚔️ Battle in progress! Results will appear shortly...
+              </p>
+            </div>
+
+            {lastUpdateTime && (
+              <p className="text-sm text-gray-500">
+                Last update: {lastUpdateTime}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Show waiting for opponent state
     return (
       <div className="text-center p-12 space-y-6">
         <div className="flex justify-center">
@@ -127,23 +176,11 @@ export const CardSelectionPhase: React.FC<CardSelectionPhaseProps> = ({
               <User className="h-5 w-5" />
               <span className="font-semibold">You: Ready</span>
             </div>
-            <div className={`flex items-center space-x-2 ${
-              opponentHasSelected ? 'text-green-400' : 'text-gray-400'
-            }`}>
+            <div className="flex items-center space-x-2 text-gray-400">
               <Users className="h-5 w-5" />
-              <span className="font-semibold">
-                Opponent: {opponentHasSelected ? 'Ready' : 'Selecting...'}
-              </span>
+              <span className="font-semibold">Opponent: Selecting...</span>
             </div>
           </div>
-
-          {opponentHasSelected && (
-            <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-500 rounded-lg">
-              <p className="text-yellow-400 font-semibold">
-                🎯 Both players ready! Battle starting soon...
-              </p>
-            </div>
-          )}
 
           {lastUpdateTime && (
             <p className="text-sm text-gray-500">

@@ -196,6 +196,7 @@ export const BattlePhaseRenderer: React.FC<BattlePhaseRendererProps> = ({
               opponentHasSelected={opponentHasSelected}
               lastUpdateTime={lastUpdateTime}
               onCardSelected={onCardSelected}
+              onRefresh={onRefresh}
             />
           </PhaseErrorBoundary>
         );

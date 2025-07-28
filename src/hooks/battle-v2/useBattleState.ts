@@ -68,11 +68,15 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
         updated_at: battleData.updated_at
       };
 
+      console.log('🔄 Battle fetched with status:', battleInstance.status);
       setBattle(battleInstance);
       
       // Fetch cards if battle is in progress or completed
       if (['cards_revealed', 'in_progress', 'completed'].includes(battleInstance.status)) {
+        console.log('🃏 Fetching battle cards for status:', battleInstance.status);
         await fetchBattleCards(battleInstance);
+      } else {
+        console.log('⏳ Not fetching cards yet, battle status is:', battleInstance.status);
       }
 
     } catch (err) {
@@ -140,20 +144,37 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
    * Handle real-time updates for card selections
    */
   const handleCardSelectionEvent = useCallback((payload: any) => {
-    console.log('Real-time event received: card_selected', payload);
+    console.log('🎯 Real-time event received: card_selected', payload);
+    console.log('🎯 Current user ID:', user?.id);
+    console.log('🎯 Payload player_id:', payload.player_id);
+    console.log('🎯 Both submitted:', payload.both_submitted);
+    console.log('🎯 Battle status from payload:', payload.battle_status);
 
     if (payload.player_id === user?.id) {
+      console.log('✅ Setting player has selected to true');
       setPlayerHasSelected(true);
     } else {
+      console.log('✅ Setting opponent has selected to true');
       setOpponentHasSelected(true);
     }
 
     // When both players have selected, refresh the battle state
     if (payload.both_submitted) {
-      console.log('Both players have submitted, refreshing battle data...');
-      refresh();
+      console.log('🚀 Both players have submitted, refreshing battle data...');
+      console.log('🚀 Expected new battle status:', payload.battle_status);
+      
+      // Add a small delay to ensure database updates are complete
+      setTimeout(() => {
+        refresh();
+      }, 1000);
+    } else {
+      console.log('⏳ Not both submitted yet, current status:', {
+        playerHasSelected: payload.player_id === user?.id ? true : playerHasSelected,
+        opponentHasSelected: payload.player_id !== user?.id ? true : opponentHasSelected,
+        battleStatus: payload.battle_status
+      });
     }
-  }, [user, refresh]);
+  }, [user, refresh, playerHasSelected, opponentHasSelected]);
 
   /**
    * Select a card for the current user
@@ -195,6 +216,26 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
     }
   }, [battleId, user, refresh]);
 
+  // Periodic refresh for active battles to ensure UI stays in sync
+  useEffect(() => {
+    if (!battle || !user) return;
+
+    // Only set up periodic refresh for active battles
+    if (['active', 'cards_revealed'].includes(battle.status)) {
+      console.log('🔄 Setting up periodic refresh for active battle');
+      
+      const interval = setInterval(() => {
+        console.log('🔄 Periodic refresh triggered');
+        refresh();
+      }, 5000); // Refresh every 5 seconds
+
+      return () => {
+        console.log('🔄 Clearing periodic refresh');
+        clearInterval(interval);
+      };
+    }
+  }, [battle?.status, user, refresh]);
+
   // Real-time subscription setup
   useEffect(() => {
     if (!battleId || !user) return;
@@ -206,8 +247,20 @@ export function useBattleState(battleId: string): UseBattleStateReturn {
         handleCardSelectionEvent(event.payload);
       })
       .on('broadcast', { event: 'battle_status_changed' }, (event) => {
-        console.log('Battle status changed:', event.payload);
-        refresh(); // Refresh data on status change
+        console.log('🔄 Battle status changed:', event.payload);
+        console.log('🔄 New status:', event.payload.new_status);
+        
+        // Add a delay to ensure database updates are complete
+        setTimeout(() => {
+          refresh();
+        }, 1500);
+      })
+      .on('broadcast', { event: 'battle_resolution_error' }, (event) => {
+        console.error('❌ Battle resolution error:', event.payload);
+        // Still refresh to get the latest state
+        setTimeout(() => {
+          refresh();
+        }, 2000);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
