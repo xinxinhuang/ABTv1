@@ -25,7 +25,7 @@ async function getCards(
 }
 
 export default async function CollectionPage() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createServerComponentClient({ cookies: () => cookieStore });
 
   const { data: { user }, error } = await supabase.auth.getUser();

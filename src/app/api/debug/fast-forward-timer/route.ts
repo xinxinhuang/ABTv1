@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   
   try {
     // Create a Supabase client with the Auth context of the function
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createRouteHandlerClient<Database>({
       cookies: () => cookieStore
     });

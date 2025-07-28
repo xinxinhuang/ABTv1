@@ -5,7 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 export async function GET() {
   try {
     // Initialize Supabase client with proper cookie handling for Next.js App Router
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createRouteHandlerClient({ 
       cookies: () => cookieStore
     });

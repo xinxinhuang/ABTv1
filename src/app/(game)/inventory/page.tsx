@@ -6,7 +6,8 @@ import { InventoryDisplay } from '@/components/game/InventoryDisplay';
 import { PlayerInventory } from '@/types/game';
 
 export default async function InventoryPage() {
-  const supabase = createServerComponentClient({ cookies });
+  const cookieStore = await cookies();
+  const supabase = createServerComponentClient({ cookies: () => cookieStore });
 
   const { data: { user }, error } = await supabase.auth.getUser();
 

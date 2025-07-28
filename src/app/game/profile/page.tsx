@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 
 export default async function ProfilePage() {
-  const supabase = createServerComponentClient({ cookies });
+  const cookieStore = await cookies();
+  const supabase = createServerComponentClient({ cookies: () => cookieStore });
 
   const { data: { user }, error } = await supabase.auth.getUser();
 
