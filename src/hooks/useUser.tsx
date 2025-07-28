@@ -28,6 +28,12 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Handle mounting to prevent hydration issues
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const getUserDetails = async (user: User) => {
@@ -126,17 +132,22 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
         const { data: { session } } = await supabase.auth.getSession();
         const sessionUser = session?.user ?? null;
         setUser(sessionUser);
-        if (sessionUser) {
+        if (sessionUser && isMounted) {
           await getUserDetails(sessionUser);
         }
       } catch (err) {
         console.error('Error in handleSession:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    handleSession();
+    // Only run session handling after component is mounted
+    if (isMounted) {
+      handleSession();
+    }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
@@ -150,15 +161,17 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
         }
         
         setUser(sessionUser);
-        if (sessionUser) {
+        if (sessionUser && isMounted) {
           await getUserDetails(sessionUser);
-        } else {
+        } else if (isMounted) {
           setUserDetails(null);
         }
       } catch (err) {
         console.error('Error in auth state change:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     });
 
@@ -196,7 +209,7 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
         onlinePlayersService.unregisterOnline(user.id);
       }
     };
-  }, [supabase, user?.id]); // Only depend on user.id to avoid infinite loops
+  }, [supabase, user?.id, isMounted]); // Add isMounted to dependencies
 
   const value = {
     user,
