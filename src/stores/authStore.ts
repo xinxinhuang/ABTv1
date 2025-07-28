@@ -117,7 +117,7 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false 
             });
             
-            toast.success('Account created! Please check your email to verify.');
+            toast.success('Account created successfully!');
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to sign up';

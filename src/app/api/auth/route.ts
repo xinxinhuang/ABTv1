@@ -50,5 +50,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: inventoryError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ message: 'Signup successful, please check your email to verify.' });
+  return NextResponse.json({ message: 'Signup successful!' });
 }
