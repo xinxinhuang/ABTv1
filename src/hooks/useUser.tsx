@@ -36,11 +36,68 @@ export const UserContextProvider = (props: UserContextProviderProps) => {
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle(); // Use maybeSingle to avoid errors when no record exists
         
         if (error) {
+          console.log('Profile fetch error details:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
+          
           console.error('Error fetching user details:', error);
           return;
+        }
+        
+        if (!data) {
+          console.log('Profile not found, creating new profile for user:', user.id);
+          try {
+            const response = await fetch('/api/create-profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+
+            const result = await response.json();
+            
+            if (!response.ok) {
+              console.error('Error creating profile via API:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: result
+              });
+              return;
+            }
+
+            console.log('Profile API response:', result);
+
+            // Now fetch the created profile
+            const { data: newProfile, error: fetchError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .maybeSingle();
+
+            if (fetchError) {
+              console.error('Error fetching newly created profile:', fetchError);
+              return;
+            }
+
+            setUserDetails(newProfile);
+
+            // Register user as online
+            const username = newProfile?.username || 'Anonymous';
+            onlinePlayersService.registerOnline(user, username).catch(err => {
+              console.error('Failed to register online status:', err);
+            });
+
+            return;
+          } catch (createErr) {
+            console.error('Error creating profile via API:', createErr);
+            return;
+          }
         }
         
         setUserDetails(data);

@@ -103,7 +103,8 @@ export const useAuthStore = create<AuthStore>()(
             password,
             options: {
               data: {
-                username,
+                username: email, // Use email as username for consistency
+                display_name: username, // Keep the provided username as display name
               },
             },
           });
@@ -115,6 +116,16 @@ export const useAuthStore = create<AuthStore>()(
               user: data.user, 
               session: data.session,
               isLoading: false 
+            });
+            
+            // Try to create profile via API (non-blocking)
+            fetch('/api/create-profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }).catch(err => {
+              console.error('Failed to create profile during signup:', err);
             });
             
             toast.success('Account created successfully!');
